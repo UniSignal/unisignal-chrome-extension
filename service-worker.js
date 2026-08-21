@@ -13,11 +13,7 @@ let messageHistory = [];
 let connectionState = "disconnected";
 const contentPorts = new Set();
 
-function broadcast(message) {
-  chrome.runtime.sendMessage(message).catch(() => {
-    // 设置页尚未打开时没有消息接收者，这是正常情况。
-  });
-
+function broadcastToContent(message) {
   for (const port of contentPorts) {
     try {
       port.postMessage(message);
@@ -29,11 +25,15 @@ function broadcast(message) {
 
 function setConnectionState(state, detail = "") {
   connectionState = state;
-  broadcast({
+  const message = {
     type: "connection-state",
     state,
     detail,
+  };
+  chrome.runtime.sendMessage(message).catch(() => {
+    // 设置页尚未打开时没有消息接收者，这是正常情况。
   });
+  broadcastToContent(message);
 }
 
 function buildWebSocketUrl(accessToken) {
@@ -108,22 +108,25 @@ function connect(accessToken, resetBackoff = true) {
   nextSocket.onmessage = (event) => {
     if (generation !== socketGeneration) return;
 
-    let data = event.data;
+    let message;
     try {
-      data = JSON.parse(event.data);
+      message = JSON.parse(event.data);
     } catch {
-      // 非 JSON 消息按原始文本展示。
+      return;
     }
 
-    if (data?.type === "connected" || data?.type === "pong") return;
+    if (message?.type === "pong") return;
+    if (
+      message?.type !== "telegram_message" ||
+      typeof message.html !== "string" ||
+      typeof message.date !== "string"
+    ) {
+      return;
+    }
 
-    const payload = {
-      data,
-      receivedAt: new Date().toISOString(),
-    };
-    messageHistory.push(payload);
+    messageHistory.push(message);
     messageHistory = messageHistory.slice(-MAX_MESSAGE_HISTORY);
-    broadcast({ type: "ws-data", ...payload });
+    broadcastToContent({ type: "telegram-message", message });
   };
 
   nextSocket.onerror = () => {
@@ -169,7 +172,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     sendResponse({
       state: connectionState,
       accessToken: currentAccessToken,
-      messageHistory,
     });
     return;
   }

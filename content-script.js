@@ -132,7 +132,7 @@ function appendSanitizedHtml(container, html) {
   appendNodes(template.content, container);
 }
 
-function createMessage(payload) {
+function createMessage(data) {
   const message = document.createElement("article");
   const text = document.createElement("div");
   const time = document.createElement("time");
@@ -140,8 +140,8 @@ function createMessage(payload) {
   message.className = "message";
   text.className = "text";
   time.className = "time";
-  appendSanitizedHtml(text, payload.data.html);
-  time.textContent = new Date(payload.data.date).toLocaleString("zh-CN", { hour12: false });
+  appendSanitizedHtml(text, data.html);
+  time.textContent = new Date(data.date).toLocaleString("zh-CN", { hour12: false });
   message.append(text, time);
   return message;
 }
@@ -150,10 +150,10 @@ function updateCount() {
   countElement.textContent = `${messageHistory.length} 条`;
 }
 
-function appendPayload(payload) {
+function appendMessage(data) {
   if (messageHistory.length === 0) messagesElement.replaceChildren();
-  messageHistory.push(payload);
-  messagesElement.prepend(createMessage(payload));
+  messageHistory.push(data);
+  messagesElement.prepend(createMessage(data));
   messagesElement.scrollTop = 0;
 
   if (messageHistory.length > MAX_MESSAGE_HISTORY) {
@@ -166,7 +166,7 @@ function appendPayload(payload) {
 function renderHistory(history) {
   messageHistory = [];
   messagesElement.replaceChildren();
-  for (const payload of history) appendPayload(payload);
+  for (const message of history) appendMessage(message);
 
   if (history.length === 0) {
     const empty = document.createElement("div");
@@ -257,8 +257,8 @@ function handleWorkerMessage(message) {
     renderHistory(message.messageHistory);
   } else if (message.type === "connection-state") {
     renderState(message.state);
-  } else if (message.type === "ws-data") {
-    appendPayload({ data: message.data, receivedAt: message.receivedAt });
+  } else if (message.type === "telegram-message") {
+    appendMessage(message.message);
   }
 }
 
