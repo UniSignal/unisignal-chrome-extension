@@ -9,8 +9,7 @@
     delete document.documentElement.dataset.unisignalNavigate;
     if (!GMGN_TOKEN_PATH.test(path || "") || location.pathname === path) return;
 
-    history.pushState(history.state, "", path);
-    window.dispatchEvent(new PopStateEvent("popstate", { state: history.state }));
+    window.next.router.push(path);
   });
 
   function getItemTimestamp(wrapper) {
