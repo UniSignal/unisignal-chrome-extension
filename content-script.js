@@ -3,6 +3,7 @@ const TARGET_SELECTOR =
 const MAX_MESSAGE_HISTORY = 20;
 const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "strong", "u"]);
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
+const CONTRACT_ADDRESS_PATTERN = /(?<![0-9a-f])0x[0-9a-f]{40}(?![0-9a-f])/gi;
 
 const MESSAGE_CSS = `
   :host {
@@ -46,6 +47,31 @@ function isAllowedLink(href) {
   }
 }
 
+function configureContractLink(link, address) {
+  link.href = `${location.origin}/bsc/token/${address.toLowerCase()}`;
+  link.target = "_self";
+  link.rel = "";
+  link.dataset.gmgnContract = address.toLowerCase();
+}
+
+function appendText(container, text) {
+  if (container.tagName === "A") {
+    container.append(document.createTextNode(text));
+    return;
+  }
+
+  let offset = 0;
+  for (const match of text.matchAll(CONTRACT_ADDRESS_PATTERN)) {
+    container.append(document.createTextNode(text.slice(offset, match.index)));
+    const link = document.createElement("a");
+    link.textContent = match[0];
+    configureContractLink(link, match[0]);
+    container.append(link);
+    offset = match.index + match[0].length;
+  }
+  container.append(document.createTextNode(text.slice(offset)));
+}
+
 function appendSanitizedHtml(container, html) {
   const template = document.createElement("template");
   template.innerHTML = html;
@@ -53,7 +79,7 @@ function appendSanitizedHtml(container, html) {
   function appendNodes(source, target) {
     for (const node of source.childNodes) {
       if (node.nodeType === Node.TEXT_NODE) {
-        target.append(document.createTextNode(node.textContent));
+        appendText(target, node.textContent);
         continue;
       }
       if (node.nodeType !== Node.ELEMENT_NODE) continue;
@@ -82,6 +108,11 @@ function appendSanitizedHtml(container, html) {
         element.className = node.className;
       }
       appendNodes(node, element);
+      if (tagName === "a") {
+        CONTRACT_ADDRESS_PATTERN.lastIndex = 0;
+        const address = `${element.href} ${element.textContent}`.match(CONTRACT_ADDRESS_PATTERN)?.[0];
+        if (address) configureContractLink(element, address);
+      }
       target.append(element);
     }
   }
@@ -93,6 +124,15 @@ function createMessageGroup(messages) {
   const host = document.createElement("unisignal-telegram-feed");
   const shadow = host.attachShadow({ mode: "open" });
   shadow.adoptedStyleSheets = [MESSAGE_STYLE_SHEET];
+  shadow.addEventListener("click", (event) => {
+    const link = event.composedPath().find((node) => node instanceof HTMLAnchorElement);
+    if (!link?.dataset.gmgnContract) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    document.documentElement.dataset.unisignalNavigate = link.pathname;
+    document.dispatchEvent(new Event("unisignal:navigate"));
+  });
 
   for (const data of messages) {
     const article = document.createElement("article");

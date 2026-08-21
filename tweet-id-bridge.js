@@ -2,7 +2,17 @@
   const ITEM_SELECTOR =
     '[data-id="KEY_X_SNIPER_RND_V1"] [data-testid="virtuoso-item-list"] > [data-index]';
   const TWITTER_EPOCH = 1_288_834_974_657n;
+  const GMGN_TOKEN_PATH = /^\/bsc\/token\/0x[0-9a-f]{40}$/i;
   let scanTimer;
+
+  document.addEventListener("unisignal:navigate", () => {
+    const path = document.documentElement.dataset.unisignalNavigate;
+    delete document.documentElement.dataset.unisignalNavigate;
+    if (!GMGN_TOKEN_PATH.test(path || "") || location.pathname === path) return;
+
+    history.pushState(history.state, "", path);
+    window.dispatchEvent(new PopStateEvent("popstate", { state: history.state }));
+  });
 
   function isTweetSnowflake(value) {
     if (typeof value !== "string" || !/^\d{15,20}$/.test(value)) return false;
