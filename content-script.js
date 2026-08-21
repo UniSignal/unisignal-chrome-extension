@@ -3,7 +3,7 @@ const TARGET_SELECTOR =
 const MAX_MESSAGE_HISTORY = 20;
 const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "strong", "u"]);
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
-const CONTRACT_ADDRESS_PATTERN = /(?<![0-9a-f])0x[0-9a-f]{40}(?![0-9a-f])/gi;
+const CONTRACT_ADDRESS_PATTERN = /(?<![0-9a-f])0x[0-9a-f]{40}(?![0-9a-f])/i;
 
 const MESSAGE_CSS = `
   :host {
@@ -22,6 +22,7 @@ const MESSAGE_CSS = `
   article + article { margin-top: 7px; }
   .text { color: #e1e6ed; font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
   .text a { color: #57bfff; }
+  .text [data-gmgn-contract] { cursor: pointer; }
   .text code { padding: 1px 4px; border-radius: 4px; background: rgb(255 255 255 / 8%); color: #aee8d8; font-family: "SFMono-Regular", Consolas, monospace; }
   .text pre { margin: 8px 0 0; padding: 8px; overflow: auto; border-radius: 6px; background: rgb(0 0 0 / 28%); white-space: pre-wrap; }
   .text pre code { padding: 0; background: transparent; }
@@ -54,24 +55,6 @@ function configureContractLink(link, address) {
   link.dataset.gmgnContract = address.toLowerCase();
 }
 
-function appendText(container, text) {
-  if (container.tagName === "A") {
-    container.append(document.createTextNode(text));
-    return;
-  }
-
-  let offset = 0;
-  for (const match of text.matchAll(CONTRACT_ADDRESS_PATTERN)) {
-    container.append(document.createTextNode(text.slice(offset, match.index)));
-    const link = document.createElement("a");
-    link.textContent = match[0];
-    configureContractLink(link, match[0]);
-    container.append(link);
-    offset = match.index + match[0].length;
-  }
-  container.append(document.createTextNode(text.slice(offset)));
-}
-
 function appendSanitizedHtml(container, html) {
   const template = document.createElement("template");
   template.innerHTML = html;
@@ -79,7 +62,7 @@ function appendSanitizedHtml(container, html) {
   function appendNodes(source, target) {
     for (const node of source.childNodes) {
       if (node.nodeType === Node.TEXT_NODE) {
-        appendText(target, node.textContent);
+        target.append(document.createTextNode(node.textContent));
         continue;
       }
       if (node.nodeType !== Node.ELEMENT_NODE) continue;
@@ -108,11 +91,6 @@ function appendSanitizedHtml(container, html) {
         element.className = node.className;
       }
       appendNodes(node, element);
-      if (tagName === "a") {
-        CONTRACT_ADDRESS_PATTERN.lastIndex = 0;
-        const address = `${element.href} ${element.textContent}`.match(CONTRACT_ADDRESS_PATTERN)?.[0];
-        if (address) configureContractLink(element, address);
-      }
       target.append(element);
     }
   }
@@ -120,17 +98,32 @@ function appendSanitizedHtml(container, html) {
   appendNodes(template.content, container);
 }
 
+function markContractTargets(container) {
+  for (const element of container.querySelectorAll("a, code")) {
+    const address = `${element.getAttribute("href") || ""} ${element.textContent}`.match(
+      CONTRACT_ADDRESS_PATTERN,
+    )?.[0];
+    if (!address) continue;
+
+    element.dataset.gmgnContract = address.toLowerCase();
+    if (element.tagName === "A") configureContractLink(element, address);
+  }
+}
+
 function createMessageGroup(messages) {
   const host = document.createElement("unisignal-telegram-feed");
   const shadow = host.attachShadow({ mode: "open" });
   shadow.adoptedStyleSheets = [MESSAGE_STYLE_SHEET];
   shadow.addEventListener("click", (event) => {
-    const link = event.composedPath().find((node) => node instanceof HTMLAnchorElement);
-    if (!link?.dataset.gmgnContract) return;
+    const target = event
+      .composedPath()
+      .find((node) => node instanceof HTMLElement && node.dataset.gmgnContract);
+    if (!target) return;
 
     event.preventDefault();
     event.stopPropagation();
-    document.documentElement.dataset.unisignalNavigate = link.pathname;
+    document.documentElement.dataset.unisignalNavigate =
+      `/bsc/token/${target.dataset.gmgnContract}`;
     document.dispatchEvent(new Event("unisignal:navigate"));
   });
 
@@ -140,6 +133,7 @@ function createMessageGroup(messages) {
     const time = document.createElement("time");
     text.className = "text";
     appendSanitizedHtml(text, data.html);
+    markContractTargets(text);
     time.textContent = new Date(data.date).toLocaleString("zh-CN", { hour12: false });
     article.append(text, time);
     shadow.append(article);
