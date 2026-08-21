@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "description": "在 GMGN 信息流顶部实时展示 Telegram 推送。",
   "minimum_chrome_version": "116",
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "background": {
     "service_worker": "service-worker.js"
   },
@@ -13,8 +15,13 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://gmgn.ai/*", "https://*.gmgn.ai/*"],
-      "js": ["content-script.js"],
+      "matches": [
+        "https://gmgn.ai/*",
+        "https://*.gmgn.ai/*"
+      ],
+      "js": [
+        "content-script.js"
+      ],
       "run_at": "document_idle"
     }
   ]
