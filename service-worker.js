@@ -11,11 +11,20 @@ let reconnectDelay = 1_000;
 let currentAccessToken = "";
 let messageHistory = [];
 let connectionState = "disconnected";
+const contentPorts = new Set();
 
 function broadcast(message) {
   chrome.runtime.sendMessage(message).catch(() => {
-    // 控制页尚未打开时没有消息接收者，这是正常情况。
+    // 设置页尚未打开时没有消息接收者，这是正常情况。
   });
+
+  for (const port of contentPorts) {
+    try {
+      port.postMessage(message);
+    } catch {
+      contentPorts.delete(port);
+    }
+  }
 }
 
 function setConnectionState(state, detail = "") {
@@ -141,6 +150,18 @@ async function loadAndConnect() {
 
 chrome.action.onClicked.addListener(() => {
   chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") });
+});
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== "gmgn-feed") return;
+
+  contentPorts.add(port);
+  port.postMessage({
+    type: "snapshot",
+    state: connectionState,
+    messageHistory,
+  });
+  port.onDisconnect.addListener(() => contentPorts.delete(port));
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
