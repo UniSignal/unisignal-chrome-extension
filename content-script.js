@@ -20,6 +20,7 @@ const MESSAGE_CSS = `
     background: rgb(16 28 31 / 96%);
   }
   article + article { margin-top: 7px; }
+  .title { margin-bottom: 6px; color: #65d6c4; font-size: 12px; font-weight: 700; }
   .text { color: #e1e6ed; font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
   .text a { color: #57bfff; }
   .text [data-gmgn-contract] { cursor: pointer; }
@@ -128,13 +129,16 @@ function createMessageGroup(messages) {
 
   for (const data of messages) {
     const article = document.createElement("article");
+    const title = document.createElement("div");
     const text = document.createElement("div");
     const time = document.createElement("time");
+    title.className = "title";
+    title.textContent = "聚合监控";
     text.className = "text";
     appendSanitizedHtml(text, data.html);
     markContractTargets(text);
     time.textContent = new Date(data.date).toLocaleString("zh-CN", { hour12: false });
-    article.append(text, time);
+    article.append(title, text, time);
     shadow.append(article);
   }
   return host;
