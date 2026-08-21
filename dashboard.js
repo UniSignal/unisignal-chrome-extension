@@ -119,26 +119,26 @@ function updateMessageCount() {
   }
 }
 
-function appendToContainer(container, payload) {
-  container.append(createMessageElement(container.ownerDocument, payload));
-  container.scrollTop = container.scrollHeight;
+function prependToContainer(container, payload) {
+  container.prepend(createMessageElement(container.ownerDocument, payload));
+  container.scrollTop = 0;
 }
 
 function appendPayload(payload) {
   if (messageHistory.length === 0) messagesElement.replaceChildren();
   messageHistory.push(payload);
-  appendToContainer(messagesElement, payload);
+  prependToContainer(messagesElement, payload);
 
   if (messageHistory.length > MAX_MESSAGE_HISTORY) {
     messageHistory.shift();
-    messagesElement.firstElementChild.remove();
+    messagesElement.lastElementChild.remove();
   }
 
   if (pipWindow && !pipWindow.closed) {
     const pipMessages = pipWindow.document.querySelector("#pipMessages");
-    appendToContainer(pipMessages, payload);
+    prependToContainer(pipMessages, payload);
     if (pipMessages.childElementCount > MAX_MESSAGE_HISTORY) {
-      pipMessages.firstElementChild.remove();
+      pipMessages.lastElementChild.remove();
     }
   }
 
@@ -195,7 +195,7 @@ function buildPipDocument(targetWindow) {
   targetWindow.document.head.append(style);
   targetWindow.document.body.append(header, messages);
 
-  for (const payload of messageHistory) appendToContainer(messages, payload);
+  for (const payload of messageHistory) prependToContainer(messages, payload);
   updateMessageCount();
 }
 
