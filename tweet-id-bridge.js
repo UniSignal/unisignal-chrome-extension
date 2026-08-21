@@ -20,59 +20,73 @@
     return timestamp >= Number(TWITTER_EPOCH) && timestamp <= Date.now() + 86_400_000;
   }
 
-  function findTweetId(value, context = "", depth = 0, seen = new WeakSet()) {
-    if (!value || typeof value !== "object" || value instanceof Node || depth > 6) return null;
-    if (seen.has(value)) return null;
+  function collectSnowflakes(value, candidates, depth = 0, seen = new WeakSet()) {
+    if (typeof value === "bigint") {
+      const candidate = value.toString();
+      if (isTweetSnowflake(candidate)) candidates.add(candidate);
+      return;
+    }
+    if (typeof value === "string") {
+      for (const [candidate] of value.matchAll(/\d{15,20}/g)) {
+        if (isTweetSnowflake(candidate)) candidates.add(candidate);
+      }
+      return;
+    }
+    if (!value || typeof value !== "object" || value instanceof Node || depth > 6) return;
+    if (seen.has(value)) return;
     seen.add(value);
 
-    const entries = Object.entries(value);
-    for (const [key, candidate] of entries) {
-      if (
-        typeof candidate === "string" &&
-        (/^(tweet|status)_?id(?:_str)?$/i.test(key) ||
-          (/tweet|status/i.test(context) && /^(id|id_str|rest_id)$/i.test(key))) &&
-        isTweetSnowflake(candidate)
-      ) {
-        return candidate;
-      }
+    for (const child of Object.values(value)) {
+      collectSnowflakes(child, candidates, depth + 1, seen);
     }
+  }
 
-    const objectType = String(value.__typename || value.type || "");
-    const restId = value.rest_id;
-    if (/tweet/i.test(objectType) && isTweetSnowflake(restId)) return restId;
+  function parseRelativeTimestamp(item) {
+    const timeElement = [...item.querySelectorAll("span")].find((element) =>
+      /^\d+\s*[smhd]$/.test(element.textContent.trim()),
+    );
+    if (!timeElement) return null;
 
-    const text = value.full_text ?? value.text ?? value.content;
-    const createdAt = value.created_at ?? value.createdAt ?? value.publish_time;
-    for (const key of ["id", "id_str", "rest_id"]) {
-      if (typeof text === "string" && createdAt && isTweetSnowflake(value[key])) {
-        return value[key];
-      }
-    }
-
-    for (const [key, child] of entries) {
-      const tweetId = findTweetId(child, `${context}.${key}`, depth + 1, seen);
-      if (tweetId) return tweetId;
-    }
-    return null;
+    const [, amount, unit] = timeElement.textContent.trim().match(/^(\d+)\s*([smhd])$/);
+    const unitMilliseconds = { s: 1_000, m: 60_000, h: 3_600_000, d: 86_400_000 };
+    const resolution = unitMilliseconds[unit];
+    return {
+      timestamp: Date.now() - Number(amount) * resolution,
+      tolerance: resolution * 1.5,
+    };
   }
 
   function extractTweetId(item) {
+    const relativeTime = parseRelativeTimestamp(item);
+    if (!relativeTime) return null;
+
+    const candidates = new Set();
     for (const element of [item, ...item.querySelectorAll("*")]) {
       for (const key of Object.keys(element)) {
         if (key.startsWith("__reactProps$")) {
-          const tweetId = findTweetId(element[key]);
-          if (tweetId) return tweetId;
+          collectSnowflakes(element[key], candidates);
         }
         if (key.startsWith("__reactFiber$")) {
           let fiber = element[key];
           for (let depth = 0; fiber && depth < 8; depth += 1, fiber = fiber.return) {
-            const tweetId = findTweetId(fiber.memoizedProps);
-            if (tweetId) return tweetId;
+            collectSnowflakes(fiber.key, candidates);
+            collectSnowflakes(fiber.memoizedProps, candidates);
           }
         }
       }
     }
-    return null;
+
+    let closestId = null;
+    let closestDistance = Infinity;
+    for (const candidate of candidates) {
+      const timestamp = Number((BigInt(candidate) >> 22n) + TWITTER_EPOCH);
+      const distance = Math.abs(timestamp - relativeTime.timestamp);
+      if (distance < closestDistance) {
+        closestId = candidate;
+        closestDistance = distance;
+      }
+    }
+    return closestDistance <= relativeTime.tolerance ? closestId : null;
   }
 
   function scan() {
