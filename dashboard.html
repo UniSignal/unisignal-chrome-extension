@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebSocket 画中画</title>
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+
+<body>
+  <main class="panel">
+    <header>
+      <div>
+        <p class="eyebrow">LIVE DATA</p>
+        <h1>WebSocket 画中画</h1>
+      </div>
+      <div id="status" class="status disconnected">
+        <span class="status-dot"></span>
+        <span id="statusText">未连接</span>
+      </div>
+    </header>
+
+    <form id="connectionForm" class="connection-form">
+      <label for="accessToken">Access Token</label>
+      <div class="input-row">
+        <input id="accessToken" name="accessToken" type="password" placeholder="输入 access token" autocomplete="off" spellcheck="false" required />
+        <button type="submit">保存并连接</button>
+      </div>
+      <p id="connectionDetail" class="detail"></p>
+    </form>
+
+    <section class="preview">
+      <div class="preview-header">
+        <h2>推送消息</h2>
+        <span id="messageCount">0 条消息</span>
+      </div>
+      <div id="messages" class="messages">
+        <p class="empty">等待服务器推送...</p>
+      </div>
+    </section>
+
+    <div class="actions">
+      <button id="openPip" class="primary" type="button">打开画中画</button>
+      <button id="reconnect" class="secondary" type="button">立即重连</button>
+    </div>
+
+    <p id="pipHint" class="hint"></p>
+  </main>
+
+  <script src="dashboard.js"></script>
+</body>
+
+</html>

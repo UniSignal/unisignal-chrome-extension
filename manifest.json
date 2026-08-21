@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "WebSocket Picture-in-Picture",
+  "version": "1.0.0",
+  "description": "在画中画窗口中实时展示 WebSocket 服务器推送的数据。",
+  "minimum_chrome_version": "116",
+  "permissions": ["storage"],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "action": {
+    "default_title": "打开 WebSocket 画中画"
+  }
+}
