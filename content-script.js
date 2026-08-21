@@ -14,9 +14,6 @@ const STATE_LABELS = {
 const PANEL_CSS = `
   :host {
     display: block;
-    position: sticky;
-    top: 0;
-    z-index: 100;
     margin: 8px;
     color: #f3f5f8;
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -232,9 +229,12 @@ function createPanel() {
 
 function findTargetList() {
   const lists = [...document.querySelectorAll(TARGET_SELECTOR)];
-  return (
-    lists.find((list) => list.getClientRects().length > 0 && list.querySelector(".gmgn-vlist-item")) ||
-    lists.find((list) => list.getClientRects().length > 0)
+  return lists.find(
+    (list) =>
+      list.getClientRects().length > 0 &&
+      list.querySelector(
+        '.gmgn-vlist-item a[href^="https://x.com/"], .gmgn-vlist-item img[src*="pbs.twimg.com/"]',
+      ),
   );
 }
 
