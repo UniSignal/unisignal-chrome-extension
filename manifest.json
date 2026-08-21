@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "UniSignal Telegram Feed",
   "version": "1.0.0",
-  "description": "在 GMGN 信息流顶部实时展示 Telegram 推送。",
+  "description": "在 GMGN 推特监控中混排展示 Telegram 推送。",
   "minimum_chrome_version": "116",
   "permissions": [
     "storage"

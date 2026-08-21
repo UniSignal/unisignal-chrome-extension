@@ -1,85 +1,40 @@
-const X_SNIPER_SELECTOR = '[data-id="KEY_X_SNIPER_RND_V1"]';
-const TARGET_SELECTOR = '[data-testid="virtuoso-item-list"]';
+const TARGET_SELECTOR =
+  '[data-id="KEY_X_SNIPER_RND_V1"] [data-testid="virtuoso-item-list"]';
 const MAX_MESSAGE_HISTORY = 20;
 const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "strong", "u"]);
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
 
-const STATE_LABELS = {
-  connected: "已连接",
-  connecting: "连接中",
-  disconnected: "未连接",
-  reconnecting: "等待重连",
-  error: "连接错误",
-};
-
-const PANEL_CSS = `
+const MESSAGE_CSS = `
   :host {
     display: block;
-    margin: 8px;
+    padding: 8px;
     color: #f3f5f8;
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
   * { box-sizing: border-box; }
-  .panel {
-    overflow: hidden;
-    border: 1px solid rgb(255 255 255 / 12%);
-    border-radius: 10px;
-    background: rgb(16 19 24 / 96%);
-    box-shadow: 0 10px 30px rgb(0 0 0 / 28%);
-    backdrop-filter: blur(12px);
+  article {
+    padding: 10px;
+    border: 1px solid rgb(101 214 196 / 32%);
+    border-radius: 8px;
+    background: rgb(16 28 31 / 96%);
   }
-  .header {
-    display: flex;
-    align-items: center;
-    min-height: 42px;
-    padding: 8px 10px;
-    border-bottom: 1px solid rgb(255 255 255 / 9%);
-  }
-  .identity { display: flex; align-items: center; min-width: 0; gap: 7px; }
-  .dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #7e8794; }
-  .panel.connected .dot { background: #45d39c; box-shadow: 0 0 0 3px rgb(69 211 156 / 13%); }
-  .panel.connecting .dot, .panel.reconnecting .dot { background: #e9c85f; }
-  .panel.error .dot { background: #ff697c; }
-  .title { overflow: hidden; font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-  .state { color: #929baa; font-size: 11px; }
-  .count { margin-left: auto; color: #929baa; font-size: 11px; }
-  .toggle {
-    margin-left: 8px;
-    padding: 4px 7px;
-    border: 0;
-    border-radius: 6px;
-    background: rgb(255 255 255 / 8%);
-    color: #bfc6d1;
-    cursor: pointer;
-    font: inherit;
-    font-size: 11px;
-  }
-  .messages { max-height: 320px; padding: 8px; overflow: auto; }
-  .panel.collapsed .messages { display: none; }
-  .panel.collapsed .header { border-bottom: 0; }
-  .empty { padding: 12px; color: #7f8896; font-size: 12px; text-align: center; }
-  .message { padding: 10px; border: 1px solid rgb(255 255 255 / 9%); border-radius: 8px; background: rgb(255 255 255 / 4%); }
-  .message + .message { margin-top: 7px; }
+  article + article { margin-top: 7px; }
   .text { color: #e1e6ed; font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
   .text a { color: #57bfff; }
   .text code { padding: 1px 4px; border-radius: 4px; background: rgb(255 255 255 / 8%); color: #aee8d8; font-family: "SFMono-Regular", Consolas, monospace; }
   .text pre { margin: 8px 0 0; padding: 8px; overflow: auto; border-radius: 6px; background: rgb(0 0 0 / 28%); white-space: pre-wrap; }
   .text pre code { padding: 0; background: transparent; }
   .text blockquote { margin: 8px 0 0; padding-left: 9px; border-left: 3px solid #4f9189; color: #b4bdca; }
-  .time { display: block; margin-top: 7px; color: #7f8896; font-size: 10px; text-align: right; }
+  time { display: block; margin-top: 7px; color: #7f8896; font-size: 10px; text-align: right; }
 `;
+const MESSAGE_STYLE_SHEET = new CSSStyleSheet();
+MESSAGE_STYLE_SHEET.replaceSync(MESSAGE_CSS);
 
-let host;
-let panel;
-let messagesElement;
-let countElement;
-let stateElement;
-let toggleElement;
-let mountedList;
-let mountTimer;
+let messageHistory = [];
+let renderTimer;
 let reconnectTimer;
 let workerPort;
-let messageHistory = [];
+let lastRenderSignature = "";
 
 function isAllowedLink(href) {
   try {
@@ -132,133 +87,110 @@ function appendSanitizedHtml(container, html) {
   appendNodes(template.content, container);
 }
 
-function createMessage(data) {
-  const message = document.createElement("article");
-  const text = document.createElement("div");
-  const time = document.createElement("time");
-
-  message.className = "message";
-  text.className = "text";
-  time.className = "time";
-  appendSanitizedHtml(text, data.html);
-  time.textContent = new Date(data.date).toLocaleString("zh-CN", { hour12: false });
-  message.append(text, time);
-  return message;
-}
-
-function updateCount() {
-  countElement.textContent = `${messageHistory.length} 条`;
-}
-
-function appendMessage(data) {
-  if (messageHistory.length === 0) messagesElement.replaceChildren();
-  messageHistory.push(data);
-  messagesElement.prepend(createMessage(data));
-  messagesElement.scrollTop = 0;
-
-  if (messageHistory.length > MAX_MESSAGE_HISTORY) {
-    messageHistory.shift();
-    messagesElement.lastElementChild.remove();
-  }
-  updateCount();
-}
-
-function renderHistory(history) {
-  messageHistory = [];
-  messagesElement.replaceChildren();
-  for (const message of history) appendMessage(message);
-
-  if (history.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "empty";
-    empty.textContent = "等待 Telegram 推送...";
-    messagesElement.append(empty);
-  }
-  updateCount();
-}
-
-function renderState(state) {
-  for (const stateName of Object.keys(STATE_LABELS)) {
-    panel.classList.remove(stateName);
-  }
-  panel.classList.add(state);
-  stateElement.textContent = STATE_LABELS[state] || state;
-}
-
-function createPanel() {
-  host = document.createElement("unisignal-telegram-feed");
+function createMessageGroup(messages) {
+  const host = document.createElement("unisignal-telegram-feed");
   const shadow = host.attachShadow({ mode: "open" });
-  const sheet = new CSSStyleSheet();
-  sheet.replaceSync(PANEL_CSS);
-  shadow.adoptedStyleSheets = [sheet];
+  shadow.adoptedStyleSheets = [MESSAGE_STYLE_SHEET];
 
-  panel = document.createElement("section");
-  panel.className = "panel disconnected";
-  const header = document.createElement("div");
-  header.className = "header";
-  const identity = document.createElement("div");
-  identity.className = "identity";
-  const dot = document.createElement("span");
-  dot.className = "dot";
-  const title = document.createElement("span");
-  title.className = "title";
-  title.textContent = "UniSignal Telegram";
-  stateElement = document.createElement("span");
-  stateElement.className = "state";
-  stateElement.textContent = "未连接";
-  countElement = document.createElement("span");
-  countElement.className = "count";
-  countElement.textContent = "0 条";
-  toggleElement = document.createElement("button");
-  toggleElement.className = "toggle";
-  toggleElement.type = "button";
-  toggleElement.textContent = "收起";
-  messagesElement = document.createElement("div");
-  messagesElement.className = "messages";
-
-  toggleElement.addEventListener("click", () => {
-    const collapsed = panel.classList.toggle("collapsed");
-    toggleElement.textContent = collapsed ? "展开" : "收起";
-  });
-
-  identity.append(dot, title, stateElement);
-  header.append(identity, countElement, toggleElement);
-  panel.append(header, messagesElement);
-  shadow.append(panel);
-  renderHistory([]);
+  for (const data of messages) {
+    const article = document.createElement("article");
+    const text = document.createElement("div");
+    const time = document.createElement("time");
+    text.className = "text";
+    appendSanitizedHtml(text, data.html);
+    time.textContent = new Date(data.date).toLocaleString("zh-CN", { hour12: false });
+    article.append(text, time);
+    shadow.append(article);
+  }
+  return host;
 }
 
-function findTargetList() {
-  const xSniper = document.querySelector(X_SNIPER_SELECTOR);
-  if (!xSniper || xSniper.getClientRects().length === 0) return null;
-
-  return [...xSniper.querySelectorAll(TARGET_SELECTOR)].find(
-    (list) => list.getClientRects().length > 0,
+function parseRelativeTime(item, now) {
+  const timeElement = [...item.querySelectorAll("span")].find((element) =>
+    /^\d+\s*[smhd]$/.test(element.textContent.trim()),
   );
+  if (!timeElement) return null;
+
+  const label = timeElement.textContent.trim();
+  const [, amount, unit] = label.match(/^(\d+)\s*([smhd])$/);
+  const unitMilliseconds = { s: 1_000, m: 60_000, h: 3_600_000, d: 86_400_000 };
+  return { label, timestamp: now - Number(amount) * unitMilliseconds[unit] };
 }
 
-function mountPanel() {
-  const targetList = findTargetList();
-  if (!targetList) return;
-  if (host.isConnected && mountedList === targetList) return;
-
-  targetList.before(host);
-  mountedList = targetList;
+function getVisibleTweets(targetList) {
+  const now = Date.now();
+  return [...targetList.querySelectorAll(":scope > [data-index]")]
+    .map((wrapper) => {
+      const relativeTime = parseRelativeTime(wrapper, now);
+      return {
+        index: Number(wrapper.dataset.index),
+        item: wrapper.querySelector(":scope > .gmgn-vlist-item"),
+        relativeTime,
+        timestamp: relativeTime?.timestamp,
+      };
+    })
+    .filter(({ item, relativeTime }) => item && relativeTime)
+    .sort((a, b) => a.index - b.index);
 }
 
-function scheduleMount() {
-  clearTimeout(mountTimer);
-  mountTimer = setTimeout(mountPanel, 100);
+function buildBuckets(tweets) {
+  const buckets = new Map();
+  const messages = [...messageHistory].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+
+  for (const message of messages) {
+    const timestamp = Date.parse(message.date);
+    if (Number.isNaN(timestamp)) continue;
+
+    let anchor;
+    if (timestamp > tweets[0].timestamp) {
+      if (tweets[0].index !== 0) continue;
+      anchor = tweets[0];
+    } else {
+      anchor = tweets.slice(1).find((tweet) => timestamp > tweet.timestamp);
+    }
+    if (!anchor) continue;
+
+    if (!buckets.has(anchor)) buckets.set(anchor, []);
+    buckets.get(anchor).push(message);
+  }
+  return buckets;
+}
+
+function renderMixedFeed() {
+  const targetList = document.querySelector(TARGET_SELECTOR);
+  if (!targetList || targetList.getClientRects().length === 0) return;
+
+  const tweets = getVisibleTweets(targetList);
+  if (tweets.length === 0) return;
+
+  const buckets = buildBuckets(tweets);
+  const signature = JSON.stringify({
+    messages: messageHistory.map(({ date, html }) => [date, html]),
+    tweets: tweets.map(({ index, relativeTime }) => [index, relativeTime.label]),
+  });
+  const existingGroups = targetList.querySelectorAll("unisignal-telegram-feed");
+  if (signature === lastRenderSignature && existingGroups.length === buckets.size) return;
+
+  for (const group of existingGroups) group.remove();
+  for (const [anchor, messages] of buckets) {
+    anchor.item.before(createMessageGroup(messages));
+  }
+  lastRenderSignature = signature;
+}
+
+function scheduleRender() {
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(renderMixedFeed, 100);
 }
 
 function handleWorkerMessage(message) {
   if (message.type === "snapshot") {
-    renderState(message.state);
-    renderHistory(message.messageHistory);
-  } else if (message.type === "connection-state") {
-    renderState(message.state);
+    messageHistory = message.messageHistory.slice(-MAX_MESSAGE_HISTORY);
+    scheduleRender();
   } else if (message.type === "telegram-message") {
-    appendMessage(message.message);
+    messageHistory.push(message.message);
+    messageHistory = messageHistory.slice(-MAX_MESSAGE_HISTORY);
+    scheduleRender();
   }
 }
 
@@ -277,11 +209,10 @@ function connectToWorker() {
   });
 }
 
-createPanel();
-mountPanel();
 connectToWorker();
+scheduleRender();
 
-new MutationObserver(scheduleMount).observe(document.documentElement, {
+new MutationObserver(scheduleRender).observe(document.documentElement, {
   childList: true,
   subtree: true,
 });
