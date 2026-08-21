@@ -31,7 +31,6 @@ const MESSAGE_CSS = `
 `;
 const MESSAGE_STYLE_SHEET = new CSSStyleSheet();
 MESSAGE_STYLE_SHEET.replaceSync(MESSAGE_CSS);
-const TWITTER_EPOCH = 1_288_834_974_657n;
 
 let messageHistory = [];
 let renderTimer;
@@ -141,42 +140,16 @@ function createMessageGroup(messages) {
   return host;
 }
 
-function parseSnowflakeTime(tweetId) {
-  if (!/^\d{15,20}$/.test(tweetId || "")) return null;
-  return Number((BigInt(tweetId) >> 22n) + TWITTER_EPOCH);
-}
-
-function parseRelativeTime(item) {
-  const timeElement = [...item.querySelectorAll("span")].find((element) =>
-    /^\d+\s*[smhd]$/.test(element.textContent.trim()),
-  );
-  if (!timeElement) return null;
-
-  const label = timeElement.textContent.trim();
-  const [, amount, unit] = label.match(/^(\d+)\s*([smhd])$/);
-  const unitMilliseconds = { s: 1_000, m: 60_000, h: 3_600_000, d: 86_400_000 };
-  return {
-    label,
-    timestamp: Date.now() - Number(amount) * unitMilliseconds[unit],
-  };
-}
-
 function getVisibleTweets(targetList) {
   return [...targetList.querySelectorAll(":scope > [data-index]")]
     .map((wrapper) => {
-      const tweetId = wrapper.dataset.unisignalTweetId;
-      const relativeTime = parseRelativeTime(wrapper);
       return {
         index: Number(wrapper.dataset.index),
         item: wrapper.querySelector(":scope > .gmgn-vlist-item"),
-        tweetId,
-        identity:
-          tweetId ||
-          `${wrapper.querySelector('a[href^="https://x.com/"]')?.href}:${relativeTime?.label}`,
-        timestamp: parseSnowflakeTime(tweetId) ?? relativeTime?.timestamp,
+        timestamp: Number(wrapper.dataset.unisignalTimestamp),
       };
     })
-    .filter(({ item, timestamp }) => item && timestamp !== null)
+    .filter(({ item, timestamp }) => item && Number.isFinite(timestamp) && timestamp > 0)
     .sort((a, b) => a.index - b.index);
 }
 
@@ -232,7 +205,7 @@ function renderMixedFeed() {
   const buckets = buildBuckets(tweets);
   const signature = JSON.stringify({
     messages: messageHistory.map(({ date, html }) => [date, html]),
-    tweets: tweets.map(({ index, identity }) => [index, identity]),
+    tweets: tweets.map(({ index, timestamp }) => [index, timestamp]),
   });
   const existingGroups = targetList.querySelectorAll("unisignal-telegram-feed");
   if (signature === lastRenderSignature && existingGroups.length === buckets.size) return;
@@ -295,8 +268,7 @@ new MutationObserver((mutations) => {
   if (mutations.some(mutationAffectsFeed)) scheduleRender();
 }).observe(document.documentElement, {
   attributes: true,
-  attributeFilter: ["data-unisignal-tweet-id"],
-  characterData: true,
+  attributeFilter: ["data-unisignal-timestamp"],
   childList: true,
   subtree: true,
 });

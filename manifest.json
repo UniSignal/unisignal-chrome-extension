@@ -20,7 +20,7 @@
         "https://*.gmgn.ai/*"
       ],
       "js": [
-        "tweet-id-bridge.js"
+        "gmgn-bridge.js"
       ],
       "run_at": "document_start",
       "world": "MAIN"

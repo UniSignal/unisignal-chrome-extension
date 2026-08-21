@@ -33,7 +33,6 @@ function setConnectionState(state, detail = "") {
   chrome.runtime.sendMessage(message).catch(() => {
     // 设置页尚未打开时没有消息接收者，这是正常情况。
   });
-  broadcastToContent(message);
 }
 
 function buildWebSocketUrl(accessToken) {
@@ -161,7 +160,6 @@ chrome.runtime.onConnect.addListener((port) => {
   contentPorts.add(port);
   port.postMessage({
     type: "snapshot",
-    state: connectionState,
     messageHistory,
   });
   port.onDisconnect.addListener(() => contentPorts.delete(port));
