@@ -1,3 +1,4 @@
+const X_SNIPER_SELECTOR = '[data-id="KEY_X_SNIPER_RND_V1"]';
 const TARGET_SELECTOR = '[data-testid="virtuoso-item-list"]';
 const MAX_MESSAGE_HISTORY = 100;
 const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "strong", "u"]);
@@ -228,13 +229,11 @@ function createPanel() {
 }
 
 function findTargetList() {
-  const lists = [...document.querySelectorAll(TARGET_SELECTOR)];
-  return lists.find(
-    (list) =>
-      list.getClientRects().length > 0 &&
-      list.querySelector(
-        '.gmgn-vlist-item a[href^="https://x.com/"], .gmgn-vlist-item img[src*="pbs.twimg.com/"]',
-      ),
+  const xSniper = document.querySelector(X_SNIPER_SELECTOR);
+  if (!xSniper || xSniper.getClientRects().length === 0) return null;
+
+  return [...xSniper.querySelectorAll(TARGET_SELECTOR)].find(
+    (list) => list.getClientRects().length > 0,
   );
 }
 
