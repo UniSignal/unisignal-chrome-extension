@@ -29,12 +29,14 @@ const MESSAGE_CSS = `
 `;
 const MESSAGE_STYLE_SHEET = new CSSStyleSheet();
 MESSAGE_STYLE_SHEET.replaceSync(MESSAGE_CSS);
+const TWITTER_EPOCH = 1_288_834_974_657n;
 
 let messageHistory = [];
 let renderTimer;
 let reconnectTimer;
 let workerPort;
 let lastRenderSignature = "";
+let activeTargetList;
 
 function isAllowedLink(href) {
   try {
@@ -105,31 +107,23 @@ function createMessageGroup(messages) {
   return host;
 }
 
-function parseRelativeTime(item, now) {
-  const timeElement = [...item.querySelectorAll("span")].find((element) =>
-    /^\d+\s*[smhd]$/.test(element.textContent.trim()),
-  );
-  if (!timeElement) return null;
-
-  const label = timeElement.textContent.trim();
-  const [, amount, unit] = label.match(/^(\d+)\s*([smhd])$/);
-  const unitMilliseconds = { s: 1_000, m: 60_000, h: 3_600_000, d: 86_400_000 };
-  return { label, timestamp: now - Number(amount) * unitMilliseconds[unit] };
+function parseSnowflakeTime(tweetId) {
+  if (!/^\d{15,20}$/.test(tweetId || "")) return null;
+  return Number((BigInt(tweetId) >> 22n) + TWITTER_EPOCH);
 }
 
 function getVisibleTweets(targetList) {
-  const now = Date.now();
   return [...targetList.querySelectorAll(":scope > [data-index]")]
     .map((wrapper) => {
-      const relativeTime = parseRelativeTime(wrapper, now);
+      const tweetId = wrapper.dataset.unisignalTweetId;
       return {
         index: Number(wrapper.dataset.index),
         item: wrapper.querySelector(":scope > .gmgn-vlist-item"),
-        relativeTime,
-        timestamp: relativeTime?.timestamp,
+        tweetId,
+        timestamp: parseSnowflakeTime(tweetId),
       };
     })
-    .filter(({ item, relativeTime }) => item && relativeTime)
+    .filter(({ item, timestamp }) => item && timestamp !== null)
     .sort((a, b) => a.index - b.index);
 }
 
@@ -156,9 +150,28 @@ function buildBuckets(tweets) {
   return buckets;
 }
 
+function findActiveTargetList() {
+  const lists = [...document.querySelectorAll(TARGET_SELECTOR)];
+  const activeList = lists.find((list) => {
+    const rect = list.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  });
+
+  for (const list of lists) {
+    if (list === activeList) continue;
+    for (const group of list.querySelectorAll("unisignal-telegram-feed")) group.remove();
+  }
+
+  if (activeList !== activeTargetList) {
+    activeTargetList = activeList;
+    lastRenderSignature = "";
+  }
+  return activeList;
+}
+
 function renderMixedFeed() {
-  const targetList = document.querySelector(TARGET_SELECTOR);
-  if (!targetList || targetList.getClientRects().length === 0) return;
+  const targetList = findActiveTargetList();
+  if (!targetList) return;
 
   const tweets = getVisibleTweets(targetList);
   if (tweets.length === 0) return;
@@ -166,7 +179,7 @@ function renderMixedFeed() {
   const buckets = buildBuckets(tweets);
   const signature = JSON.stringify({
     messages: messageHistory.map(({ date, html }) => [date, html]),
-    tweets: tweets.map(({ index, relativeTime }) => [index, relativeTime.label]),
+    tweets: tweets.map(({ index, tweetId }) => [index, tweetId]),
   });
   const existingGroups = targetList.querySelectorAll("unisignal-telegram-feed");
   if (signature === lastRenderSignature && existingGroups.length === buckets.size) return;
@@ -213,6 +226,8 @@ connectToWorker();
 scheduleRender();
 
 new MutationObserver(scheduleRender).observe(document.documentElement, {
+  attributes: true,
+  attributeFilter: ["data-unisignal-tweet-id"],
   childList: true,
   subtree: true,
 });
