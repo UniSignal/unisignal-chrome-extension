@@ -80,15 +80,7 @@ function connect(accessToken, resetBackoff = true) {
     return;
   }
 
-  let nextSocket;
-  try {
-    nextSocket = new WebSocket(buildWebSocketUrl(currentAccessToken));
-  } catch (error) {
-    setConnectionState("error", error.message);
-    scheduleReconnect(generation);
-    return;
-  }
-
+  const nextSocket = new WebSocket(buildWebSocketUrl(currentAccessToken));
   socket = nextSocket;
   setConnectionState("connecting");
 
@@ -128,19 +120,12 @@ function connect(accessToken, resetBackoff = true) {
     broadcastToContent({ type: "telegram-message", message });
   };
 
-  nextSocket.onerror = () => {
-    if (generation === socketGeneration) {
-      setConnectionState("error", "WebSocket 连接出错");
-    }
-  };
-
-  nextSocket.onclose = (event) => {
+  nextSocket.onclose = () => {
     if (generation !== socketGeneration) return;
 
     clearInterval(heartbeatTimer);
     heartbeatTimer = null;
     socket = null;
-    setConnectionState("disconnected", event.reason || `连接已关闭 (${event.code})`);
     scheduleReconnect(generation);
   };
 }

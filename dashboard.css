@@ -88,11 +88,6 @@ h1 {
   color: #efd266;
 }
 
-.status.error {
-  border-color: #753943;
-  color: #ff8796;
-}
-
 .connection-form {
   margin-top: 28px;
 }

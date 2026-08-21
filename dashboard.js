@@ -10,7 +10,6 @@ const STATE_LABELS = {
   connecting: "连接中",
   disconnected: "未连接",
   reconnecting: "等待重连",
-  error: "连接错误",
 };
 
 function renderConnectionState(state, detail = "") {
