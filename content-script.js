@@ -52,7 +52,6 @@ function configureContractLink(link, address) {
   link.href = `${location.origin}/bsc/token/${address.toLowerCase()}`;
   link.target = "_self";
   link.rel = "";
-  link.dataset.gmgnContract = address.toLowerCase();
 }
 
 function appendSanitizedHtml(container, html) {
