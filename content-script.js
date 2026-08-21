@@ -146,15 +146,34 @@ function parseSnowflakeTime(tweetId) {
   return Number((BigInt(tweetId) >> 22n) + TWITTER_EPOCH);
 }
 
+function parseRelativeTime(item) {
+  const timeElement = [...item.querySelectorAll("span")].find((element) =>
+    /^\d+\s*[smhd]$/.test(element.textContent.trim()),
+  );
+  if (!timeElement) return null;
+
+  const label = timeElement.textContent.trim();
+  const [, amount, unit] = label.match(/^(\d+)\s*([smhd])$/);
+  const unitMilliseconds = { s: 1_000, m: 60_000, h: 3_600_000, d: 86_400_000 };
+  return {
+    label,
+    timestamp: Date.now() - Number(amount) * unitMilliseconds[unit],
+  };
+}
+
 function getVisibleTweets(targetList) {
   return [...targetList.querySelectorAll(":scope > [data-index]")]
     .map((wrapper) => {
       const tweetId = wrapper.dataset.unisignalTweetId;
+      const relativeTime = parseRelativeTime(wrapper);
       return {
         index: Number(wrapper.dataset.index),
         item: wrapper.querySelector(":scope > .gmgn-vlist-item"),
         tweetId,
-        timestamp: parseSnowflakeTime(tweetId),
+        identity:
+          tweetId ||
+          `${wrapper.querySelector('a[href^="https://x.com/"]')?.href}:${relativeTime?.label}`,
+        timestamp: parseSnowflakeTime(tweetId) ?? relativeTime?.timestamp,
       };
     })
     .filter(({ item, timestamp }) => item && timestamp !== null)
@@ -213,7 +232,7 @@ function renderMixedFeed() {
   const buckets = buildBuckets(tweets);
   const signature = JSON.stringify({
     messages: messageHistory.map(({ date, html }) => [date, html]),
-    tweets: tweets.map(({ index, tweetId }) => [index, tweetId]),
+    tweets: tweets.map(({ index, identity }) => [index, identity]),
   });
   const existingGroups = targetList.querySelectorAll("unisignal-telegram-feed");
   if (signature === lastRenderSignature && existingGroups.length === buckets.size) return;
