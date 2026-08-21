@@ -1,6 +1,6 @@
 (() => {
-  const ITEM_SELECTOR =
-    '[data-id="KEY_X_SNIPER_RND_V1"] [data-testid="virtuoso-item-list"] > [data-index]';
+  const TARGET_ROOT_SELECTOR = '[data-id="KEY_X_SNIPER_RND_V1"]';
+  const ITEM_SELECTOR = `${TARGET_ROOT_SELECTOR} [data-testid="virtuoso-item-list"] > [data-index]`;
   const TWITTER_EPOCH = 1_288_834_974_657n;
   const GMGN_TOKEN_PATH = /^\/bsc\/token\/0x[0-9a-f]{40}$/i;
   let scanTimer;
@@ -102,8 +102,24 @@
     scanTimer = setTimeout(scan, 50);
   }
 
+  function mutationAffectsItems(mutation) {
+    const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
+    const target =
+      mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+    if (target?.closest(TARGET_ROOT_SELECTOR)) return true;
+
+    return changedNodes.some(
+      (node) =>
+        node instanceof Element &&
+        (node.matches(TARGET_ROOT_SELECTOR) || node.querySelector(TARGET_ROOT_SELECTOR)),
+    );
+  }
+
   scheduleScan();
-  new MutationObserver(scheduleScan).observe(document.documentElement, {
+  new MutationObserver((mutations) => {
+    if (mutations.some(mutationAffectsItems)) scheduleScan();
+  }).observe(document.documentElement, {
+    characterData: true,
     childList: true,
     subtree: true,
   });

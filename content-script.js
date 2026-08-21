@@ -1,5 +1,5 @@
-const TARGET_SELECTOR =
-  '[data-id="KEY_X_SNIPER_RND_V1"] [data-testid="virtuoso-item-list"]';
+const TARGET_ROOT_SELECTOR = '[data-id="KEY_X_SNIPER_RND_V1"]';
+const TARGET_SELECTOR = `${TARGET_ROOT_SELECTOR} [data-testid="virtuoso-item-list"]`;
 const MAX_MESSAGE_HISTORY = 20;
 const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "strong", "u"]);
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
@@ -278,9 +278,25 @@ function connectToWorker() {
 connectToWorker();
 scheduleRender();
 
-new MutationObserver(scheduleRender).observe(document.documentElement, {
+function mutationAffectsFeed(mutation) {
+  const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
+  const target =
+    mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+  if (target?.closest(TARGET_ROOT_SELECTOR)) return true;
+
+  return changedNodes.some(
+    (node) =>
+      node instanceof Element &&
+      (node.matches(TARGET_ROOT_SELECTOR) || node.querySelector(TARGET_ROOT_SELECTOR)),
+  );
+}
+
+new MutationObserver((mutations) => {
+  if (mutations.some(mutationAffectsFeed)) scheduleRender();
+}).observe(document.documentElement, {
   attributes: true,
   attributeFilter: ["data-unisignal-tweet-id"],
+  characterData: true,
   childList: true,
   subtree: true,
 });
