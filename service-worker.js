@@ -1,4 +1,4 @@
-const WS_URL = "wss://ws.example.com/ws";
+const WS_URL = "wss://wss.unisignal.xyz/ws";
 const HEARTBEAT_INTERVAL_MS = 20_000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 const MAX_MESSAGE_HISTORY = 100;
