@@ -249,6 +249,7 @@ function connectToWorker() {
   }
   workerPort.onMessage.addListener(handleWorkerMessage);
   workerPort.onDisconnect.addListener(() => {
+    void chrome.runtime.lastError;
     workerPort = null;
     reconnectTimer = setTimeout(connectToWorker, 1_000);
   });
