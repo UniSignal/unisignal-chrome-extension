@@ -4,6 +4,7 @@ const MAX_MESSAGE_HISTORY = 20;
 const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "strong", "u"]);
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
 const CONTRACT_ADDRESS_PATTERN = /(?<![0-9a-f])0x[0-9a-f]{40}(?![0-9a-f])/i;
+const EXPLORER_CHAINS = { "bscscan.com": "bsc", "etherscan.io": "eth", "basescan.org": "base" };
 
 const MESSAGE_CSS = `
   :host {
@@ -48,8 +49,8 @@ function isAllowedLink(href) {
   }
 }
 
-function configureContractLink(link, address) {
-  link.href = `${location.origin}/bsc/token/${address.toLowerCase()}`;
+function configureContractLink(link, chain, address) {
+  link.href = `${location.origin}/${chain}/token/${address.toLowerCase()}`;
   link.target = "_self";
   link.rel = "";
 }
@@ -98,7 +99,10 @@ function appendSanitizedHtml(container, html) {
 }
 
 function markContractTargets(container) {
-  if (!container.querySelector('a[href*="bscscan.com" i]')) return;
+  const chain = Object.entries(EXPLORER_CHAINS).find(([explorer]) =>
+    container.querySelector(`a[href*="${explorer}" i]`),
+  )?.[1];
+  if (!chain) return;
 
   for (const element of container.querySelectorAll("a, code")) {
     const address = `${element.getAttribute("href") || ""} ${element.textContent}`.match(
@@ -107,7 +111,8 @@ function markContractTargets(container) {
     if (!address) continue;
 
     element.dataset.gmgnContract = address.toLowerCase();
-    if (element.tagName === "A") configureContractLink(element, address);
+    element.dataset.gmgnChain = chain;
+    if (element.tagName === "A") configureContractLink(element, chain, address);
   }
 }
 
@@ -124,7 +129,7 @@ function createMessageGroup(messages) {
     event.preventDefault();
     event.stopPropagation();
     document.documentElement.dataset.unisignalNavigate =
-      `/bsc/token/${target.dataset.gmgnContract}`;
+      `/${target.dataset.gmgnChain}/token/${target.dataset.gmgnContract}`;
     document.dispatchEvent(new Event("unisignal:navigate"));
   });
 

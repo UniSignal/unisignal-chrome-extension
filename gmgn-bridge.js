@@ -1,7 +1,7 @@
 (() => {
   const MONITOR_SELECTOR = '[data-id="KEY_X_SNIPER_RND_V1"]';
   const ITEM_SELECTOR = `${MONITOR_SELECTOR} [data-testid="virtuoso-item-list"] > [data-index]`;
-  const GMGN_TOKEN_PATH = /^\/bsc\/token\/0x[0-9a-f]{40}$/i;
+  const GMGN_TOKEN_PATH = /^\/[a-z0-9_-]+\/token\/0x[0-9a-f]{40}$/i;
   let scanTimer;
 
   document.addEventListener("unisignal:navigate", () => {
