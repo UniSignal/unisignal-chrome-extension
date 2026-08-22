@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to release
+        required: true
+        type: string
+      release_name:
+        description: Optional release title
+        required: false
+        type: string
+      notes:
+        description: Release notes
+        required: false
+        type: string
+      upload_archive:
+        description: Upload the Chrome extension ZIP
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+      RELEASE_NAME: ${{ inputs.release_name }}
+      RELEASE_NOTES: ${{ inputs.notes }}
+      UPLOAD_ARCHIVE: ${{ github.event_name == 'push' || inputs.upload_archive }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
+
+      - name: Package extension
+        if: env.UPLOAD_ARCHIVE == 'true'
+        shell: bash
+        run: |
+          archive="unisignal-chrome-extension-${RELEASE_TAG}.zip"
+          files=(
+            content-script.js
+            dashboard.css
+            dashboard.html
+            dashboard.js
+            gmgn-bridge.js
+            icons
+            manifest.json
+            service-worker.js
+          )
+
+          if [[ -f notification-sound.mp3 ]]; then
+            files+=(notification-sound.mp3)
+          fi
+
+          zip -r "$archive" "${files[@]}"
+
+      - name: Create release
+        shell: bash
+        run: |
+          args=(
+            "$RELEASE_TAG"
+            --repo "$GITHUB_REPOSITORY"
+            --verify-tag
+            --notes "$RELEASE_NOTES"
+          )
+
+          if [[ -n "$RELEASE_NAME" ]]; then
+            args+=(--title "$RELEASE_NAME")
+          fi
+
+          if [[ "$UPLOAD_ARCHIVE" == true ]]; then
+            args+=("unisignal-chrome-extension-${RELEASE_TAG}.zip")
+          fi
+
+          gh release create "${args[@]}"
