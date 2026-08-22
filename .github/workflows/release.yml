@@ -37,7 +37,7 @@ jobs:
       RELEASE_NOTES: ${{ inputs.notes }}
       UPLOAD_ARCHIVE: ${{ github.event_name == 'push' || inputs.upload_archive }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: refs/tags/${{ inputs.tag || github.ref_name }}
 
