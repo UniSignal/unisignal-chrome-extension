@@ -35,12 +35,6 @@ function setConnectionState(state, detail = "") {
   });
 }
 
-function buildWebSocketUrl(accessToken) {
-  const url = new URL(WS_URL);
-  url.searchParams.set("token", accessToken);
-  return url.toString();
-}
-
 function clearConnectionTimers() {
   clearInterval(heartbeatTimer);
   clearTimeout(reconnectTimer);
@@ -80,20 +74,14 @@ function connect(accessToken, resetBackoff = true) {
     return;
   }
 
-  const nextSocket = new WebSocket(buildWebSocketUrl(currentAccessToken));
+  const nextSocket = new WebSocket(WS_URL);
   socket = nextSocket;
   setConnectionState("connecting");
 
   nextSocket.onopen = () => {
     if (generation !== socketGeneration) return;
 
-    reconnectDelay = 1_000;
-    setConnectionState("connected");
-    heartbeatTimer = setInterval(() => {
-      if (nextSocket.readyState === WebSocket.OPEN) {
-        nextSocket.send(JSON.stringify({ type: "ping" }));
-      }
-    }, HEARTBEAT_INTERVAL_MS);
+    nextSocket.send(JSON.stringify({ type: "auth", token: currentAccessToken }));
   };
 
   nextSocket.onmessage = (event) => {
@@ -106,6 +94,16 @@ function connect(accessToken, resetBackoff = true) {
       return;
     }
 
+    if (message?.type === "authenticated") {
+      reconnectDelay = 1_000;
+      setConnectionState("connected");
+      heartbeatTimer = setInterval(() => {
+        if (nextSocket.readyState === WebSocket.OPEN) {
+          nextSocket.send(JSON.stringify({ type: "ping" }));
+        }
+      }, HEARTBEAT_INTERVAL_MS);
+      return;
+    }
     if (message?.type === "pong") return;
     if (
       message?.type !== "telegram_message" ||

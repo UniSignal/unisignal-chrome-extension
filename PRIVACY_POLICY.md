@@ -12,7 +12,7 @@ Effective date: August 22, 2026
 
 ### 处理的数据
 
-- **Access Token**：保存在 Chrome 本地存储中，并作为加密 WSS 连接 URL 的查询参数发送至 UniSignal 服务器进行鉴权。
+- **Access Token**：保存在 Chrome 本地存储中。建立加密 WSS 连接后，扩展会在连接内发送 Access Token 至 UniSignal 服务器进行鉴权。
 - **Telegram 用户 ID 和频道成员状态**：服务器在启动时及之后每 6 小时读取指定频道的成员列表，并为其中的非机器人、未删除账号生成或保留 Access Token。这包括尚未在机器人中请求 Token 或尚未使用本扩展的频道成员。
 - **频道消息**：指定频道的新消息会实时发送给已授权客户端。服务器不将消息写入数据库；扩展仅在内存中保留最近 20 条消息。
 - **GMGN 网站内容**：扩展仅在用户设备本地读取 GMGN 推特监控列表中的消息时间，用于混排消息，不会将 GMGN 页面内容上传至服务器。
@@ -27,7 +27,7 @@ Effective date: August 22, 2026
 为运行服务，以下第三方可能在提供其服务所必需的范围内处理数据：
 
 - **Telegram**：承载机器人对话和指定频道，并提供 Telegram 用户 ID、频道成员状态及频道消息。
-- **Cloudflare**：为 `wss.unisignal.xyz` 提供反向代理和安全服务，因此可能处理连接 IP、连接元数据以及包含 Access Token 的 WSS 请求 URL。
+- **Cloudflare**：为 `wss.unisignal.xyz` 提供反向代理和安全服务，因此可能处理连接 IP、连接元数据及代理的 WSS 流量，包括用于鉴权的 Access Token 和频道消息。
 - **GitHub**：通过 GitHub Pages 托管本隐私政策页面，并可能按照 GitHub 的政策处理访问者的 IP 和请求元数据。扩展不会向 GitHub 发送 Access Token、Telegram 数据或 GMGN 页面内容。
 
 除上述服务提供商、法律要求、保护服务安全或完成服务运营所必需的情况外，我们不会向其他第三方披露用户数据。
@@ -60,7 +60,7 @@ This policy applies to the UniSignal Telegram Feed Chrome extension and its supp
 
 ### Data We Process
 
-- **Access Token**: Stored in Chrome local storage and sent to the UniSignal server as a query parameter in the encrypted WSS connection URL for authentication.
+- **Access Token**: Stored in Chrome local storage. After an encrypted WSS connection is established, the Extension sends the Access Token to the UniSignal server within that connection for authentication.
 - **Telegram user ID and channel membership status**: At startup and every six hours thereafter, the server reads the designated channel's member list and generates or retains an Access Token for each non-bot, non-deleted account. This includes channel members who have not requested a Token from the bot or used the Extension.
 - **Channel messages**: New messages from the designated channel are delivered in real time to authorized clients. The server does not store messages in its database; the Extension keeps only the 20 most recent messages in memory.
 - **GMGN website content**: The Extension locally reads message timestamps from the GMGN X monitoring feed for chronological placement. GMGN page content is not uploaded to the server.
@@ -75,7 +75,7 @@ Data is used only to authenticate access, synchronize channel membership, delive
 The following third parties may process data only as necessary to provide their services:
 
 - **Telegram**: Hosts bot conversations and the designated channel and provides Telegram user IDs, channel membership status, and channel messages.
-- **Cloudflare**: Provides reverse-proxy and security services for `wss.unisignal.xyz` and may therefore process connection IP addresses, connection metadata, and the WSS request URL containing the Access Token.
+- **Cloudflare**: Provides reverse-proxy and security services for `wss.unisignal.xyz` and may therefore process connection IP addresses, connection metadata, and proxied WSS traffic, including the Access Token used for authentication and channel messages.
 - **GitHub**: Hosts this privacy policy through GitHub Pages and may process visitors' IP addresses and request metadata under GitHub's policies. The Extension does not send Access Tokens, Telegram data, or GMGN page content to GitHub.
 
 We do not otherwise disclose user data except to the providers listed above, when required by law, when necessary to protect service security, or when necessary to operate the service.
