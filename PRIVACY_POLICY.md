@@ -1,7 +1,8 @@
 # UniSignal Telegram Feed 隐私政策 / Privacy Policy
 
-生效日期：2026 年 8 月 21 日  
-Effective date: August 21, 2026
+生效日期：2026 年 8 月 22 日
+
+Effective date: August 22, 2026
 
 ## 中文
 
@@ -11,8 +12,8 @@ Effective date: August 21, 2026
 
 ### 处理的数据
 
-- **Access Token**：保存在 Chrome 本地存储中，并通过加密的 WSS 连接发送至 UniSignal 服务器进行鉴权。
-- **Telegram 用户 ID 和频道成员状态**：服务器使用这些信息生成 Access Token，并确认用户是否仍为指定频道成员。
+- **Access Token**：保存在 Chrome 本地存储中，并作为加密 WSS 连接 URL 的查询参数发送至 UniSignal 服务器进行鉴权。
+- **Telegram 用户 ID 和频道成员状态**：服务器在启动时及之后每 6 小时读取指定频道的成员列表，并为其中的非机器人、未删除账号生成或保留 Access Token。这包括尚未在机器人中请求 Token 或尚未使用本扩展的频道成员。
 - **频道消息**：指定频道的新消息会实时发送给已授权客户端。服务器不将消息写入数据库；扩展仅在内存中保留最近 20 条消息。
 - **GMGN 网站内容**：扩展仅在用户设备本地读取 GMGN 推特监控列表中的消息时间，用于混排消息，不会将 GMGN 页面内容上传至服务器。
 - **运行日志**：服务器日志可能包含连接 IP、连接时间、错误信息和 Telegram 消息 ID，用于服务维护、安全和故障排查。
@@ -23,13 +24,21 @@ Effective date: August 21, 2026
 
 数据仅用于验证访问权限、同步频道成员、推送并展示监控消息，以及维护服务安全和稳定性。我们不会出售用户数据，也不会将数据用于广告、信用评估、贷款或与本扩展单一用途无关的目的。
 
-为运行服务，服务器托管、数据库、反向代理或内容分发网络供应商可能在提供基础设施所必需的范围内处理数据。除法律要求、保护服务安全或完成服务运营所必需的情况外，我们不会向其他第三方披露用户数据。
+为运行服务，以下第三方可能在提供其服务所必需的范围内处理数据：
+
+- **Telegram**：承载机器人对话和指定频道，并提供 Telegram 用户 ID、频道成员状态及频道消息。
+- **Cloudflare**：为 `wss.unisignal.xyz` 提供反向代理和安全服务，因此可能处理连接 IP、连接元数据以及包含 Access Token 的 WSS 请求 URL。
+- **GitHub**：通过 GitHub Pages 托管本隐私政策页面，并可能按照 GitHub 的政策处理访问者的 IP 和请求元数据。扩展不会向 GitHub 发送 Access Token、Telegram 数据或 GMGN 页面内容。
+
+除上述服务提供商、法律要求、保护服务安全或完成服务运营所必需的情况外，我们不会向其他第三方披露用户数据。
+
+我们对用户数据的使用遵守 Chrome Web Store User Data Policy，包括 Limited Use 要求。
 
 ### 存储与保留
 
 - Access Token 保存在 Chrome 本地存储中，直至用户替换 Token、清除扩展数据或卸载扩展。
 - 服务器在 PostgreSQL 中保存 Telegram 用户 ID、Access Token 和创建时间。
-- 服务启动时及之后每 6 小时同步频道成员。用户退出频道后，其服务器端 Token 会被删除，现有 WebSocket 连接会被断开。
+- 服务启动时及之后每 6 小时同步频道成员。用户退出频道后，其服务器端 Telegram 用户 ID 和 Access Token 会在下一次成功同步时被删除，现有 WebSocket 连接会被断开；通常不超过 6 小时，但同步失败时可能更久。
 - 最近 20 条频道消息仅保存在扩展后台进程内存中。
 - 运行日志仅在服务运营、安全和故障排查所需期间保留。
 
@@ -51,8 +60,8 @@ This policy applies to the UniSignal Telegram Feed Chrome extension and its supp
 
 ### Data We Process
 
-- **Access Token**: Stored in Chrome local storage and sent to the UniSignal server over an encrypted WSS connection for authentication.
-- **Telegram user ID and channel membership status**: Used by the server to generate Access Tokens and confirm continued membership in the designated channel.
+- **Access Token**: Stored in Chrome local storage and sent to the UniSignal server as a query parameter in the encrypted WSS connection URL for authentication.
+- **Telegram user ID and channel membership status**: At startup and every six hours thereafter, the server reads the designated channel's member list and generates or retains an Access Token for each non-bot, non-deleted account. This includes channel members who have not requested a Token from the bot or used the Extension.
 - **Channel messages**: New messages from the designated channel are delivered in real time to authorized clients. The server does not store messages in its database; the Extension keeps only the 20 most recent messages in memory.
 - **GMGN website content**: The Extension locally reads message timestamps from the GMGN X monitoring feed for chronological placement. GMGN page content is not uploaded to the server.
 - **Operational logs**: Server logs may contain connection IP addresses, connection times, error details, and Telegram message IDs for maintenance, security, and troubleshooting.
@@ -63,13 +72,21 @@ The Extension does not read or collect wallet private keys, seed phrases, transa
 
 Data is used only to authenticate access, synchronize channel membership, deliver and display monitoring messages, and maintain service security and reliability. We do not sell user data or use it for advertising, credit assessment, lending, or purposes unrelated to the Extension's single purpose.
 
-Infrastructure providers for hosting, databases, reverse proxies, or content delivery may process data only as necessary to provide those services. We do not otherwise disclose user data except when required by law, necessary to protect service security, or necessary to operate the service.
+The following third parties may process data only as necessary to provide their services:
+
+- **Telegram**: Hosts bot conversations and the designated channel and provides Telegram user IDs, channel membership status, and channel messages.
+- **Cloudflare**: Provides reverse-proxy and security services for `wss.unisignal.xyz` and may therefore process connection IP addresses, connection metadata, and the WSS request URL containing the Access Token.
+- **GitHub**: Hosts this privacy policy through GitHub Pages and may process visitors' IP addresses and request metadata under GitHub's policies. The Extension does not send Access Tokens, Telegram data, or GMGN page content to GitHub.
+
+We do not otherwise disclose user data except to the providers listed above, when required by law, when necessary to protect service security, or when necessary to operate the service.
+
+Our use of user data complies with the Chrome Web Store User Data Policy, including its Limited Use requirements.
 
 ### Storage and Retention
 
 - The Access Token remains in Chrome local storage until replaced, Extension data is cleared, or the Extension is uninstalled.
 - The server stores the Telegram user ID, Access Token, and creation time in PostgreSQL.
-- Membership is synchronized at service startup and every six hours. When a user leaves the channel, the server-side Token is deleted and existing WebSocket connections are closed.
+- Membership is synchronized at service startup and every six hours. After a user leaves the channel, the server-side Telegram user ID and Access Token are deleted and existing WebSocket connections are closed at the next successful synchronization. This normally occurs within six hours but may take longer if synchronization fails.
 - The 20 most recent channel messages are held only in Extension background memory.
 - Operational logs are retained only as long as reasonably necessary for service operation, security, and troubleshooting.
 
