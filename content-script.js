@@ -99,8 +99,6 @@ function appendSanitizedHtml(container, html) {
 }
 
 function markContractTargets(container) {
-  if (!location.href.toLowerCase().includes("bsc")) return;
-
   for (const element of container.querySelectorAll("a, code")) {
     const address = `${element.getAttribute("href") || ""} ${element.textContent}`.match(
       CONTRACT_ADDRESS_PATTERN,
