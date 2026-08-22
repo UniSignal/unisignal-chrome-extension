@@ -82,6 +82,13 @@ function connect(accessToken, resetBackoff = true) {
     if (generation !== socketGeneration) return;
 
     nextSocket.send(JSON.stringify({ type: "auth", token: currentAccessToken }));
+    reconnectDelay = 1_000;
+    setConnectionState("connected");
+    heartbeatTimer = setInterval(() => {
+      if (nextSocket.readyState === WebSocket.OPEN) {
+        nextSocket.send(JSON.stringify({ type: "ping" }));
+      }
+    }, HEARTBEAT_INTERVAL_MS);
   };
 
   nextSocket.onmessage = (event) => {
@@ -94,16 +101,6 @@ function connect(accessToken, resetBackoff = true) {
       return;
     }
 
-    if (message?.type === "authenticated") {
-      reconnectDelay = 1_000;
-      setConnectionState("connected");
-      heartbeatTimer = setInterval(() => {
-        if (nextSocket.readyState === WebSocket.OPEN) {
-          nextSocket.send(JSON.stringify({ type: "ping" }));
-        }
-      }, HEARTBEAT_INTERVAL_MS);
-      return;
-    }
     if (message?.type === "pong") return;
     if (
       message?.type !== "telegram_message" ||
