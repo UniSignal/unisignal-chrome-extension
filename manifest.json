@@ -23,6 +23,12 @@
       "32": "icons/icon32.png"
     }
   },
+  "web_accessible_resources": [
+    {
+      "resources": ["notification-sound.mp3"],
+      "matches": ["https://gmgn.ai/*", "https://*.gmgn.ai/*"]
+    }
+  ],
   "content_scripts": [
     {
       "matches": [

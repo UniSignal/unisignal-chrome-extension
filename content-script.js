@@ -40,6 +40,7 @@ let reconnectTimer;
 let workerPort;
 let lastRenderSignature = "";
 let activeTargetList;
+const notificationAudio = new Audio(chrome.runtime.getURL("notification-sound.mp3"));
 
 function isAllowedLink(href) {
   try {
@@ -240,6 +241,8 @@ function handleWorkerMessage(message) {
     messageHistory.push(message.message);
     messageHistory = messageHistory.slice(-MAX_MESSAGE_HISTORY);
     scheduleRender();
+    notificationAudio.currentTime = 0;
+    notificationAudio.play().catch(() => {});
   }
 }
 
