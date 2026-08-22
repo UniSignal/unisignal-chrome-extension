@@ -4,6 +4,7 @@ const MAX_MESSAGE_HISTORY = 20;
 const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "strong", "u"]);
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
 const CONTRACT_ADDRESS_PATTERN = /(?<![0-9a-f])0x[0-9a-f]{40}(?![0-9a-f])/i;
+const BSC_CONTRACT_PATTERN = /(?:^0x4444|(?:4444|ffff|7777|8888)$)/i;
 
 const MESSAGE_CSS = `
   :host {
@@ -98,11 +99,13 @@ function appendSanitizedHtml(container, html) {
 }
 
 function markContractTargets(container) {
+  if (!location.href.toLowerCase().includes("bsc")) return;
+
   for (const element of container.querySelectorAll("a, code")) {
     const address = `${element.getAttribute("href") || ""} ${element.textContent}`.match(
       CONTRACT_ADDRESS_PATTERN,
     )?.[0];
-    if (!address) continue;
+    if (!address || !BSC_CONTRACT_PATTERN.test(address)) continue;
 
     element.dataset.gmgnContract = address.toLowerCase();
     if (element.tagName === "A") configureContractLink(element, address);
