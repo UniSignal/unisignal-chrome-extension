@@ -147,7 +147,10 @@ chrome.runtime.onConnect.addListener((port) => {
     type: "snapshot",
     messageHistory,
   });
-  port.onDisconnect.addListener(() => contentPorts.delete(port));
+  port.onDisconnect.addListener(() => {
+    void chrome.runtime.lastError;
+    contentPorts.delete(port);
+  });
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
