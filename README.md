@@ -7,7 +7,7 @@ Chrome Manifest V3 扩展，将 UniSignal Telegram 频道消息按时间混排�
 - 通过 `wss://wss.unisignal.xyz/ws` 接收实时监控消息
 - 按消息时间插入 GMGN 推特监控列表
 - 展示 Telegram 文本格式和链接
-- 识别 BSC 合约地址并通过 GMGN 原生路由打开代币页面
+- 识别 BSC、Ethereum 和 Base 合约地址并通过 GMGN 原生路由打开代币页面
 - 在浏览器本地保存 Access Token
 
 ## 安装

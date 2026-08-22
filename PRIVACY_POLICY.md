@@ -7,7 +7,7 @@ Effective date: August 21, 2026
 
 ### 适用范围与用途
 
-本政策适用于 UniSignal Telegram Feed Chrome 扩展及其配套 Telegram 机器人和 WebSocket 服务。本扩展的单一用途是在 GMGN 推特监控信息流中按时间展示 UniSignal Telegram 频道消息，并提供 BSC 合约地址跳转。
+本政策适用于 UniSignal Telegram Feed Chrome 扩展及其配套 Telegram 机器人和 WebSocket 服务。本扩展的单一用途是在 GMGN 推特监控信息流中按时间展示 UniSignal Telegram 频道消息，并提供 BSC、Ethereum 和 Base 合约地址跳转。
 
 ### 处理的数据
 
@@ -47,7 +47,7 @@ Effective date: August 21, 2026
 
 ### Scope and Purpose
 
-This policy applies to the UniSignal Telegram Feed Chrome extension and its supporting Telegram bot and WebSocket service. The Extension's single purpose is to display UniSignal Telegram channel messages chronologically in the GMGN X monitoring feed and provide navigation to BSC contract pages.
+This policy applies to the UniSignal Telegram Feed Chrome extension and its supporting Telegram bot and WebSocket service. The Extension's single purpose is to display UniSignal Telegram channel messages chronologically in the GMGN X monitoring feed and provide navigation to BSC, Ethereum, and Base contract pages.
 
 ### Data We Process
 
