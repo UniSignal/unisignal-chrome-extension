@@ -70,7 +70,7 @@ function connect(accessToken, resetBackoff = true) {
   if (resetBackoff) reconnectDelay = 1_000;
 
   if (!currentAccessToken) {
-    setConnectionState("disconnected", "请配置 access token");
+    setConnectionState("disconnected", "请先填写 Access Token");
     return;
   }
 

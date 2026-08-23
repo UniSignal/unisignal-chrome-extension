@@ -23,12 +23,12 @@ connectionForm.addEventListener("submit", async (event) => {
 
   const accessToken = accessTokenInput.value.trim();
   if (!accessToken) {
-    connectionDetail.textContent = "请输入 access token";
+    connectionDetail.textContent = "请输入 Access Token";
     return;
   }
 
   await chrome.runtime.sendMessage({ type: "set-access-token", accessToken });
-  connectionDetail.textContent = "Access token 已保存，正在连接...";
+  connectionDetail.textContent = "Access Token 已保存，正在连接…";
 });
 
 reconnectButton.addEventListener("click", () => {

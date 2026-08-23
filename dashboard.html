@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>UniSignal Telegram Feed</title>
+  <title>UniSignal Telegram 推送设置</title>
   <link rel="stylesheet" href="dashboard.css" />
 </head>
 
@@ -13,7 +13,7 @@
     <header>
       <div>
         <p class="eyebrow">UNISIGNAL</p>
-        <h1>Telegram Feed</h1>
+        <h1>Telegram 推送设置</h1>
       </div>
       <div id="status" class="status disconnected">
         <span class="status-dot"></span>
@@ -24,7 +24,7 @@
     <form id="connectionForm" class="connection-form">
       <label for="accessToken">Access Token</label>
       <div class="input-row">
-        <input id="accessToken" name="accessToken" type="password" placeholder="输入 access token" autocomplete="off"
+        <input id="accessToken" name="accessToken" type="password" placeholder="请输入 Access Token" autocomplete="off"
           spellcheck="false" required />
         <button type="submit">保存并连接</button>
       </div>
@@ -32,12 +32,12 @@
     </form>
 
     <div class="actions">
-      <a href="https://t.me/unisignal_relay_bot" target="_blank" rel="noopener noreferrer">打开机器人获取 Token</a>
-      <button id="reconnect" class="secondary" type="button">立即重连</button>
+      <a href="https://t.me/unisignal_relay_bot" target="_blank" rel="noopener noreferrer">获取 Access Token</a>
+      <button id="reconnect" class="secondary" type="button">重新连接</button>
       <a href="https://gmgn.ai/" target="_blank" rel="noopener noreferrer">打开 GMGN</a>
     </div>
 
-    <p class="hint">Telegram 推送会按时间混排在 GMGN 推特监控中，设置页可以关闭。</p>
+    <p class="hint">连接成功后即可关闭此页面。Telegram 推送将按时间顺序显示在 GMGN 推特监控中。</p>
   </main>
 
   <script src="dashboard.js"></script>
