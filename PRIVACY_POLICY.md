@@ -48,7 +48,7 @@ Effective date: August 22, 2026
 
 ### 联系与变更
 
-如有隐私或数据删除请求，请通过 Telegram 联系 [@uni_signal_bot](https://t.me/uni_signal_bot)。如数据处理方式发生重大变化，我们会更新本政策和 Chrome 应用商店披露。
+如有隐私或数据删除请求，请通过 Telegram 联系 [@unisignal_relay_bot](https://t.me/unisignal_relay_bot)。如数据处理方式发生重大变化，我们会更新本政策和 Chrome 应用商店披露。
 
 ---
 
@@ -96,4 +96,4 @@ The Extension uses encrypted WSS connections for Access Tokens and channel messa
 
 ### Contact and Changes
 
-For privacy questions or data deletion requests, contact [@uni_signal_bot](https://t.me/uni_signal_bot) on Telegram. If data practices change materially, we will update this policy and the Chrome Web Store disclosures.
+For privacy questions or data deletion requests, contact [@unisignal_relay_bot](https://t.me/unisignal_relay_bot) on Telegram. If data practices change materially, we will update this policy and the Chrome Web Store disclosures.

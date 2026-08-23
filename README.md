@@ -15,7 +15,7 @@ Chrome Manifest V3 扩展，将 UniSignal Telegram 频道消息按时间混排�
 1. 打开 `chrome://extensions/`。
 2. 开启“开发者模式”。
 3. 点击“加载已解压的扩展程序”，选择本仓库目录。
-4. 私聊 [@uni_signal_bot](https://t.me/uni_signal_bot) 获取 Access Token。
+4. 通过 [@unisignal_relay_bot](https://t.me/unisignal_relay_bot?start=token) 获取 Access Token。
 5. 点击扩展图标，填写 Token 并连接。
 6. 打开或刷新 [GMGN](https://gmgn.ai/)。
 
