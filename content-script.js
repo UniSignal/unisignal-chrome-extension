@@ -75,6 +75,17 @@ function isAllowedLink(href) {
   }
 }
 
+function getGmgnNotificationVolume() {
+  try {
+    const chain =
+      new URLSearchParams(location.search).get("chain") || location.pathname.split("/")[1];
+    const volume = JSON.parse(localStorage.getItem("soundConfig"))?.[chain]?.notificationVolume;
+    return Number.isFinite(volume) ? Math.min(Math.max(volume, 0), 100) / 100 : 0.5;
+  } catch {
+    return 0.5;
+  }
+}
+
 function configureContractLink(link, chain, address) {
   link.href = `${location.origin}/${chain}/token/${address.toLowerCase()}`;
   link.target = "_self";
@@ -326,6 +337,7 @@ function handleWorkerMessage(message) {
     upsertMessage(message.message);
     scheduleRender();
     if (message.message.type !== "telegram_message_edited") {
+      notificationAudio.volume = getGmgnNotificationVolume();
       notificationAudio.currentTime = 0;
       notificationAudio.play().catch(() => { });
     }
