@@ -28,6 +28,7 @@ function upsertMessage(message) {
     messageHistory[existingIndex] = message;
   }
   messageHistory = messageHistory.slice(-MAX_MESSAGE_HISTORY);
+  chrome.storage.local.set({ messageHistory });
 }
 
 function broadcastToContent(message) {
@@ -145,7 +146,10 @@ function connect(accessToken, resetBackoff = true) {
 }
 
 async function loadAndConnect() {
-  const { accessToken = "" } = await chrome.storage.local.get("accessToken");
+  const { accessToken = "", messageHistory: storedMessages = [] } =
+    await chrome.storage.local.get(["accessToken", "messageHistory"]);
+  if (Array.isArray(storedMessages)) messageHistory = storedMessages.slice(-MAX_MESSAGE_HISTORY);
+  broadcastToContent({ type: "snapshot", messageHistory });
   connect(accessToken);
 }
 

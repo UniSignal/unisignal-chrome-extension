@@ -14,7 +14,7 @@ Effective date: August 24, 2026
 
 - **Access Token**：保存在 Chrome 本地存储中。建立加密 WSS 连接后，扩展会在连接内发送 Access Token 至 UniSignal 服务器进行鉴权。
 - **Telegram 用户 ID 和频道成员状态**：服务器在启动时及之后每 6 小时读取指定频道的成员列表，并为其中的非机器人、未删除账号生成或保留 Access Token。这包括尚未在机器人中请求 Token 或尚未使用本扩展的频道成员。
-- **频道消息**：指定频道的新消息和编辑后的消息会连同频道 ID、消息 ID 实时发送给已授权客户端。扩展使用这两个 ID 更新同一条消息并生成 Telegram 原消息链接。服务器不将消息写入数据库；扩展仅在内存中保留最近 20 条消息及其上述元数据。
+- **频道消息**：指定频道的新消息和编辑后的消息会连同频道 ID、消息 ID 实时发送给已授权客户端。扩展使用这两个 ID 更新同一条消息并生成 Telegram 原消息链接。服务器不将消息写入数据库；扩展在 Chrome 本地存储中保留最近 20 条消息及其上述元数据。
 - **GMGN 网站内容**：扩展仅在用户设备本地读取 GMGN 推特监控列表中的消息时间，用于混排消息，不会将 GMGN 页面内容上传至服务器。
 - **运行日志**：服务器日志可能包含连接 IP、连接时间、错误信息和 Telegram 消息 ID，用于服务维护、安全和故障排查。
 
@@ -39,7 +39,7 @@ Effective date: August 24, 2026
 - Access Token 保存在 Chrome 本地存储中，直至用户替换 Token、清除扩展数据或卸载扩展。
 - 服务器在 PostgreSQL 中保存 Telegram 用户 ID、Access Token 和创建时间。
 - 服务启动时及之后每 6 小时同步频道成员。用户退出频道后，其服务器端 Telegram 用户 ID 和 Access Token 会在下一次成功同步时被删除，现有 WebSocket 连接会被断开；通常不超过 6 小时，但同步失败时可能更久。
-- 最近 20 条频道消息及其频道 ID、消息 ID 仅保存在扩展内存中，不会持久化保存。
+- 最近 20 条频道消息及其频道 ID、消息 ID 保存在 Chrome 本地存储中，较旧消息会被自动替换，并保留至用户清除扩展数据或卸载扩展。
 - 运行日志仅在服务运营、安全和故障排查所需期间保留。
 
 ### 安全与用户选择
@@ -62,7 +62,7 @@ This policy applies to the UniSignal Telegram Feed Chrome extension and its supp
 
 - **Access Token**: Stored in Chrome local storage. After an encrypted WSS connection is established, the Extension sends the Access Token to the UniSignal server within that connection for authentication.
 - **Telegram user ID and channel membership status**: At startup and every six hours thereafter, the server reads the designated channel's member list and generates or retains an Access Token for each non-bot, non-deleted account. This includes channel members who have not requested a Token from the bot or used the Extension.
-- **Channel messages**: New and edited messages from the designated channel are delivered in real time to authorized clients together with their channel IDs and message IDs. The Extension uses these IDs to update the same message and generate links to the original Telegram messages. The server does not store messages in its database; the Extension keeps only the 20 most recent messages and this metadata in memory.
+- **Channel messages**: New and edited messages from the designated channel are delivered in real time to authorized clients together with their channel IDs and message IDs. The Extension uses these IDs to update the same message and generate links to the original Telegram messages. The server does not store messages in its database; the Extension keeps only the 20 most recent messages and this metadata in Chrome local storage.
 - **GMGN website content**: The Extension locally reads message timestamps from the GMGN X monitoring feed for chronological placement. GMGN page content is not uploaded to the server.
 - **Operational logs**: Server logs may contain connection IP addresses, connection times, error details, and Telegram message IDs for maintenance, security, and troubleshooting.
 
@@ -87,7 +87,7 @@ Our use of user data complies with the Chrome Web Store User Data Policy, includ
 - The Access Token remains in Chrome local storage until replaced, Extension data is cleared, or the Extension is uninstalled.
 - The server stores the Telegram user ID, Access Token, and creation time in PostgreSQL.
 - Membership is synchronized at service startup and every six hours. After a user leaves the channel, the server-side Telegram user ID and Access Token are deleted and existing WebSocket connections are closed at the next successful synchronization. This normally occurs within six hours but may take longer if synchronization fails.
-- The 20 most recent channel messages and their channel IDs and message IDs are held only in Extension memory and are not persisted.
+- The 20 most recent channel messages and their channel IDs and message IDs are stored in Chrome local storage. Older messages are automatically replaced, and the stored messages remain until the user clears Extension data or uninstalls the Extension.
 - Operational logs are retained only as long as reasonably necessary for service operation, security, and troubleshooting.
 
 ### Security and User Choices
