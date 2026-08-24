@@ -70,11 +70,16 @@ jobs:
             "$RELEASE_TAG"
             --repo "$GITHUB_REPOSITORY"
             --verify-tag
-            --notes "$RELEASE_NOTES"
           )
 
           if [[ -n "$RELEASE_NAME" ]]; then
             args+=(--title "$RELEASE_NAME")
+          fi
+
+          if [[ -n "$RELEASE_NOTES" ]]; then
+            args+=(--notes "$RELEASE_NOTES")
+          else
+            args+=(--generate-notes)
           fi
 
           if [[ "$RELEASE_TAG" == *-* ]]; then
