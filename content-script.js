@@ -4,7 +4,8 @@ const MAX_MESSAGE_HISTORY = 100;
 const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "strong", "u"]);
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
 const CONTRACT_ADDRESS_PATTERN = /(?<![0-9a-f])0x[0-9a-f]{40}(?![0-9a-f])/i;
-const EXPLORER_CHAINS = { "bscscan.com": "bsc", "etherscan.io": "eth", "basescan.org": "base" };
+const GMGN_TOKEN_PATH_PATTERN =
+  /^\/(bsc|eth|base)\/token\/(?:[^/]*_)?(0x[0-9a-f]{40})(?:\/|$)/i;
 
 const MESSAGE_CSS = `
   :host {
@@ -124,10 +125,16 @@ function appendSanitizedHtml(container, html) {
 }
 
 function markContractTargets(container) {
-  const chain = Object.entries(EXPLORER_CHAINS).find(([explorer]) =>
-    container.querySelector(`a[href*="${explorer}" i]`),
-  )?.[1];
-  if (!chain) return [];
+  const gmgnContracts = new Map();
+
+  for (const link of container.querySelectorAll("a")) {
+    const url = new URL(link.href);
+    const match = url.hostname === "gmgn.ai" && url.pathname.match(GMGN_TOKEN_PATH_PATTERN);
+    if (!match) continue;
+
+    const [, chain, address] = match;
+    gmgnContracts.set(address.toLowerCase(), chain.toLowerCase());
+  }
 
   const contracts = new Map();
 
@@ -138,6 +145,9 @@ function markContractTargets(container) {
     if (!address) continue;
 
     const normalizedAddress = address.toLowerCase();
+    const chain = gmgnContracts.get(normalizedAddress);
+    if (!chain) continue;
+
     element.dataset.gmgnContract = normalizedAddress;
     element.dataset.gmgnChain = chain;
     if (element.tagName === "A") configureContractLink(element, chain, address);
