@@ -22,6 +22,7 @@ const MESSAGE_CSS = `
   }
   article + article { margin-top: 7px; }
   .title { margin-bottom: 6px; color: #65d6c4; font-size: 12px; font-weight: 700; }
+  .edited { margin-left: 6px; color: #7f8896; font-size: 10px; font-weight: 400; }
   .text { color: #e1e6ed; font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
   .text a { color: #57bfff; }
   .text [data-gmgn-contract] { cursor: pointer; }
@@ -162,6 +163,12 @@ function createMessageGroup(messages) {
     appendSanitizedHtml(text, data.html);
     markContractTargets(text);
     time.textContent = new Date(data.date).toLocaleString("zh-CN", { hour12: false });
+    if (data.type === "telegram_message_edited") {
+      const edited = document.createElement("span");
+      edited.className = "edited";
+      edited.textContent = "已编辑";
+      title.append(edited);
+    }
     article.append(title, text, time);
     shadow.append(article);
   }
@@ -232,7 +239,7 @@ function renderMixedFeed() {
 
   const buckets = buildBuckets(tweets);
   const signature = JSON.stringify({
-    messages: messageHistory.map(({ date, html }) => [date, html]),
+    messages: messageHistory.map(({ type, date, html }) => [type, date, html]),
     tweets: tweets.map(({ index, timestamp }) => [index, timestamp]),
   });
   const existingGroups = targetList.querySelectorAll("unisignal-telegram-feed");
