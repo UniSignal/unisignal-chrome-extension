@@ -30,7 +30,10 @@
         "icons/GMGN_logo.svg",
         "icons/Telegram_logo.svg"
       ],
-      "matches": ["https://gmgn.ai/*", "https://*.gmgn.ai/*"]
+      "matches": [
+        "https://gmgn.ai/*",
+        "https://*.gmgn.ai/*"
+      ]
     }
   ],
   "content_scripts": [

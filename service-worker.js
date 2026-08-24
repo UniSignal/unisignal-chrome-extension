@@ -18,9 +18,9 @@ function upsertMessage(message) {
     Number.isInteger(message.channel_id) && Number.isInteger(message.message_id);
   const existingIndex = hasIdentity
     ? messageHistory.findIndex(
-        (item) =>
-          item.channel_id === message.channel_id && item.message_id === message.message_id,
-      )
+      (item) =>
+        item.channel_id === message.channel_id && item.message_id === message.message_id,
+    )
     : -1;
   if (existingIndex === -1) {
     messageHistory.push(message);
