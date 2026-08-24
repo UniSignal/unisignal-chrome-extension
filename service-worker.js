@@ -123,7 +123,7 @@ function connect(accessToken, resetBackoff = true) {
     }
     if (message?.type === "pong") return;
     if (
-      message?.type !== "telegram_message" ||
+      !["telegram_message", "telegram_message_edited"].includes(message?.type) ||
       typeof message.html !== "string" ||
       typeof message.date !== "string"
     ) {
