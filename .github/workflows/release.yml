@@ -77,6 +77,10 @@ jobs:
             args+=(--title "$RELEASE_NAME")
           fi
 
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            args+=(--prerelease)
+          fi
+
           if [[ "$UPLOAD_ARCHIVE" == true ]]; then
             args+=("unisignal-chrome-extension-${RELEASE_TAG}.zip")
           fi
