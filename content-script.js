@@ -257,8 +257,10 @@ function handleWorkerMessage(message) {
   } else if (message.type === "telegram-message") {
     upsertMessage(message.message);
     scheduleRender();
-    notificationAudio.currentTime = 0;
-    notificationAudio.play().catch(() => {});
+    if (message.message.type !== "telegram_message_edited") {
+      notificationAudio.currentTime = 0;
+      notificationAudio.play().catch(() => {});
+    }
   }
 }
 
