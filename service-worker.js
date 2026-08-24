@@ -13,6 +13,23 @@ let messageHistory = [];
 let connectionState = "disconnected";
 const contentPorts = new Set();
 
+function upsertMessage(message) {
+  const hasIdentity =
+    Number.isInteger(message.channel_id) && Number.isInteger(message.message_id);
+  const existingIndex = hasIdentity
+    ? messageHistory.findIndex(
+        (item) =>
+          item.channel_id === message.channel_id && item.message_id === message.message_id,
+      )
+    : -1;
+  if (existingIndex === -1) {
+    messageHistory.push(message);
+  } else {
+    messageHistory[existingIndex] = message;
+  }
+  messageHistory = messageHistory.slice(-MAX_MESSAGE_HISTORY);
+}
+
 function broadcastToContent(message) {
   for (const port of contentPorts) {
     try {
@@ -113,8 +130,7 @@ function connect(accessToken, resetBackoff = true) {
       return;
     }
 
-    messageHistory.push(message);
-    messageHistory = messageHistory.slice(-MAX_MESSAGE_HISTORY);
+    upsertMessage(message);
     broadcastToContent({ type: "telegram-message", message });
   };
 

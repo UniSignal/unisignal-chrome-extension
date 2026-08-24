@@ -42,6 +42,23 @@ let lastRenderSignature = "";
 let activeTargetList;
 const notificationAudio = new Audio(chrome.runtime.getURL("notification-sound.mp3"));
 
+function upsertMessage(message) {
+  const hasIdentity =
+    Number.isInteger(message.channel_id) && Number.isInteger(message.message_id);
+  const existingIndex = hasIdentity
+    ? messageHistory.findIndex(
+        (item) =>
+          item.channel_id === message.channel_id && item.message_id === message.message_id,
+      )
+    : -1;
+  if (existingIndex === -1) {
+    messageHistory.push(message);
+  } else {
+    messageHistory[existingIndex] = message;
+  }
+  messageHistory = messageHistory.slice(-MAX_MESSAGE_HISTORY);
+}
+
 function isAllowedLink(href) {
   try {
     return ALLOWED_LINK_PROTOCOLS.has(new URL(href).protocol);
@@ -238,8 +255,7 @@ function handleWorkerMessage(message) {
     messageHistory = message.messageHistory.slice(-MAX_MESSAGE_HISTORY);
     scheduleRender();
   } else if (message.type === "telegram-message") {
-    messageHistory.push(message.message);
-    messageHistory = messageHistory.slice(-MAX_MESSAGE_HISTORY);
+    upsertMessage(message.message);
     scheduleRender();
     notificationAudio.currentTime = 0;
     notificationAudio.play().catch(() => {});
