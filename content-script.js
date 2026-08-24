@@ -32,7 +32,8 @@ const MESSAGE_CSS = `
   .text blockquote { margin: 8px 0 0; padding-left: 9px; border-left: 3px solid #4f9189; color: #b4bdca; }
   .footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; margin-top: 8px; }
   .actions { display: flex; flex-wrap: wrap; gap: 5px; }
-  .action { display: inline-flex; align-items: center; padding: 3px 7px; border: 1px solid rgb(127 136 150 / 45%); border-radius: 6px; background: rgb(255 255 255 / 5%); color: #cbd3dd; font-family: inherit; font-size: 10px; font-weight: 500; line-height: 1.4; text-decoration: none; cursor: pointer; }
+  .action { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border: 1px solid rgb(127 136 150 / 45%); border-radius: 6px; background: rgb(255 255 255 / 5%); color: #cbd3dd; font-family: inherit; font-size: 10px; font-weight: 500; line-height: 1.4; text-decoration: none; cursor: pointer; }
+  .action-icon { width: 14px; height: 14px; flex: none; }
   .action:hover { border-color: #65d6c4; color: #f3f5f8; }
   .telegram { color: #57bfff; }
   time { flex: none; color: #7f8896; font-size: 10px; text-align: right; }
@@ -150,13 +151,21 @@ function createMessageActions(data, contracts) {
   const actions = document.createElement("div");
   actions.className = "actions";
 
+  function createIcon(filename) {
+    const icon = document.createElement("img");
+    icon.className = "action-icon";
+    icon.src = chrome.runtime.getURL(`icons/${filename}`);
+    icon.alt = "";
+    return icon;
+  }
+
   if (Number.isInteger(data.channel_id) && Number.isInteger(data.message_id)) {
     const telegram = document.createElement("a");
     telegram.className = "action telegram";
     telegram.href = `https://t.me/c/${data.channel_id}/${data.message_id}`;
     telegram.target = "_blank";
     telegram.rel = "noopener noreferrer";
-    telegram.textContent = "Telegram 原消息";
+    telegram.append(createIcon("Telegram_logo.svg"), "Telegram 原消息");
     actions.append(telegram);
   }
 
@@ -167,7 +176,7 @@ function createMessageActions(data, contracts) {
     button.dataset.gmgnContract = address;
     button.dataset.gmgnChain = chain;
     button.title = address;
-    button.textContent = `CA ${address.slice(0, 6)}…${address.slice(-4)}`;
+    button.append(createIcon("GMGN_logo.svg"), `CA ${address.slice(0, 6)}…${address.slice(-4)}`);
     actions.append(button);
   }
 

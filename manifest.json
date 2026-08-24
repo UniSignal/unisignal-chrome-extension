@@ -25,7 +25,11 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["notification-sound.mp3"],
+      "resources": [
+        "notification-sound.mp3",
+        "icons/GMGN_logo.svg",
+        "icons/Telegram_logo.svg"
+      ],
       "matches": ["https://gmgn.ai/*", "https://*.gmgn.ai/*"]
     }
   ],
