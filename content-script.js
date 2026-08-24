@@ -45,7 +45,8 @@ let messageHistory = [];
 let renderTimer;
 let reconnectTimer;
 let workerPort;
-const lastRenderSignatures = new WeakMap();
+let lastRenderSignature = "";
+let activeTargetList;
 const notificationAudio = new Audio(chrome.runtime.getURL("notification-sound.mp3"));
 
 function upsertMessage(message) {
@@ -261,47 +262,45 @@ function buildBuckets(tweets) {
   return buckets;
 }
 
-function findVisibleTargetLists() {
+function findActiveTargetList() {
   const lists = [...document.querySelectorAll(TARGET_SELECTOR)];
-  const visibleLists = lists.filter((list) => {
+  const activeList = lists.find((list) => {
     const rect = list.getBoundingClientRect();
     return rect.width > 0 && rect.height > 0;
   });
 
   for (const list of lists) {
-    if (visibleLists.includes(list)) continue;
+    if (list === activeList) continue;
     for (const group of list.querySelectorAll("unisignal-telegram-feed")) group.remove();
-    lastRenderSignatures.delete(list);
   }
-  return visibleLists;
+
+  if (activeList !== activeTargetList) {
+    activeTargetList = activeList;
+    lastRenderSignature = "";
+  }
+  return activeList;
 }
 
 function renderMixedFeed() {
-  const targetLists = findVisibleTargetLists();
+  const targetList = findActiveTargetList();
+  if (!targetList) return;
 
-  for (const targetList of targetLists) {
-    const tweets = getVisibleTweets(targetList);
-    if (tweets.length === 0) continue;
+  const tweets = getVisibleTweets(targetList);
+  if (tweets.length === 0) return;
 
-    const buckets = buildBuckets(tweets);
-    const signature = JSON.stringify({
-      messages: messageHistory.map(({ type, date, html }) => [type, date, html]),
-      tweets: tweets.map(({ index, timestamp }) => [index, timestamp]),
-    });
-    const existingGroups = targetList.querySelectorAll("unisignal-telegram-feed");
-    if (
-      signature === lastRenderSignatures.get(targetList) &&
-      existingGroups.length === buckets.size
-    ) {
-      continue;
-    }
+  const buckets = buildBuckets(tweets);
+  const signature = JSON.stringify({
+    messages: messageHistory.map(({ type, date, html }) => [type, date, html]),
+    tweets: tweets.map(({ index, timestamp }) => [index, timestamp]),
+  });
+  const existingGroups = targetList.querySelectorAll("unisignal-telegram-feed");
+  if (signature === lastRenderSignature && existingGroups.length === buckets.size) return;
 
-    for (const group of existingGroups) group.remove();
-    for (const [anchor, messages] of buckets) {
-      anchor.item.before(createMessageGroup(messages));
-    }
-    lastRenderSignatures.set(targetList, signature);
+  for (const group of existingGroups) group.remove();
+  for (const [anchor, messages] of buckets) {
+    anchor.item.before(createMessageGroup(messages));
   }
+  lastRenderSignature = signature;
 }
 
 function scheduleRender() {
