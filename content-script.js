@@ -86,12 +86,6 @@ function getGmgnNotificationVolume() {
   }
 }
 
-function configureContractLink(link, chain, address) {
-  link.href = `${location.origin}/${chain}/token/${address.toLowerCase()}`;
-  link.target = "_self";
-  link.rel = "";
-}
-
 function appendSanitizedHtml(container, html) {
   const template = document.createElement("template");
   template.innerHTML = html;
@@ -147,12 +141,8 @@ function markContractTargets(container) {
     gmgnContracts.set(address.toLowerCase(), chain.toLowerCase());
   }
 
-  const contracts = new Map();
-
-  for (const element of container.querySelectorAll("a, code")) {
-    const address = `${element.getAttribute("href") || ""} ${element.textContent}`.match(
-      CONTRACT_ADDRESS_PATTERN,
-    )?.[0];
+  for (const element of container.querySelectorAll("code")) {
+    const address = element.textContent.match(CONTRACT_ADDRESS_PATTERN)?.[0];
     if (!address) continue;
 
     const normalizedAddress = address.toLowerCase();
@@ -161,11 +151,9 @@ function markContractTargets(container) {
 
     element.dataset.gmgnContract = normalizedAddress;
     element.dataset.gmgnChain = chain;
-    if (element.tagName === "A") configureContractLink(element, chain, address);
-    contracts.set(normalizedAddress, { chain, address: normalizedAddress });
   }
 
-  return [...contracts.values()];
+  return [...gmgnContracts].map(([address, chain]) => ({ chain, address }));
 }
 
 function createMessageActions(data, contracts) {
