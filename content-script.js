@@ -30,7 +30,12 @@ const MESSAGE_CSS = `
   .text pre { margin: 8px 0 0; padding: 8px; overflow: auto; border-radius: 6px; background: rgb(0 0 0 / 28%); white-space: pre-wrap; }
   .text pre code { padding: 0; background: transparent; }
   .text blockquote { margin: 8px 0 0; padding-left: 9px; border-left: 3px solid #4f9189; color: #b4bdca; }
-  time { display: block; margin-top: 7px; color: #7f8896; font-size: 10px; text-align: right; }
+  .footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; margin-top: 8px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 5px; }
+  .action { display: inline-flex; align-items: center; padding: 3px 7px; border: 1px solid rgb(127 136 150 / 45%); border-radius: 6px; background: rgb(255 255 255 / 5%); color: #cbd3dd; font-family: inherit; font-size: 10px; font-weight: 500; line-height: 1.4; text-decoration: none; cursor: pointer; }
+  .action:hover { border-color: #65d6c4; color: #f3f5f8; }
+  .telegram { color: #57bfff; }
+  time { flex: none; color: #7f8896; font-size: 10px; text-align: right; }
 `;
 const MESSAGE_STYLE_SHEET = new CSSStyleSheet();
 MESSAGE_STYLE_SHEET.replaceSync(MESSAGE_CSS);
@@ -121,7 +126,9 @@ function markContractTargets(container) {
   const chain = Object.entries(EXPLORER_CHAINS).find(([explorer]) =>
     container.querySelector(`a[href*="${explorer}" i]`),
   )?.[1];
-  if (!chain) return;
+  if (!chain) return [];
+
+  const contracts = new Map();
 
   for (const element of container.querySelectorAll("a, code")) {
     const address = `${element.getAttribute("href") || ""} ${element.textContent}`.match(
@@ -129,10 +136,42 @@ function markContractTargets(container) {
     )?.[0];
     if (!address) continue;
 
-    element.dataset.gmgnContract = address.toLowerCase();
+    const normalizedAddress = address.toLowerCase();
+    element.dataset.gmgnContract = normalizedAddress;
     element.dataset.gmgnChain = chain;
     if (element.tagName === "A") configureContractLink(element, chain, address);
+    contracts.set(normalizedAddress, { chain, address: normalizedAddress });
   }
+
+  return [...contracts.values()];
+}
+
+function createMessageActions(data, contracts) {
+  const actions = document.createElement("div");
+  actions.className = "actions";
+
+  if (Number.isInteger(data.channel_id) && Number.isInteger(data.message_id)) {
+    const telegram = document.createElement("a");
+    telegram.className = "action telegram";
+    telegram.href = `https://t.me/c/${data.channel_id}/${data.message_id}`;
+    telegram.target = "_blank";
+    telegram.rel = "noopener noreferrer";
+    telegram.textContent = "Telegram 原消息";
+    actions.append(telegram);
+  }
+
+  for (const { chain, address } of contracts) {
+    const button = document.createElement("button");
+    button.className = "action";
+    button.type = "button";
+    button.dataset.gmgnContract = address;
+    button.dataset.gmgnChain = chain;
+    button.title = address;
+    button.textContent = `CA ${address.slice(0, 6)}…${address.slice(-4)}`;
+    actions.append(button);
+  }
+
+  return actions;
 }
 
 function createMessageGroup(messages) {
@@ -156,12 +195,15 @@ function createMessageGroup(messages) {
     const article = document.createElement("article");
     const title = document.createElement("div");
     const text = document.createElement("div");
+    const footer = document.createElement("div");
     const time = document.createElement("time");
     title.className = "title";
     title.textContent = "聚合监控";
     text.className = "text";
     appendSanitizedHtml(text, data.html);
-    markContractTargets(text);
+    const contracts = markContractTargets(text);
+    footer.className = "footer";
+    footer.append(createMessageActions(data, contracts), time);
     time.textContent = new Date(data.date).toLocaleString("zh-CN", { hour12: false });
     if (data.type === "telegram_message_edited") {
       const edited = document.createElement("span");
@@ -169,7 +211,7 @@ function createMessageGroup(messages) {
       edited.textContent = "已编辑";
       title.append(edited);
     }
-    article.append(title, text, time);
+    article.append(title, text, footer);
     shadow.append(article);
   }
   return host;
