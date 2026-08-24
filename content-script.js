@@ -1,6 +1,6 @@
 const TARGET_ROOT_SELECTOR = '[data-id="KEY_X_SNIPER_RND_V1"]';
 const TARGET_SELECTOR = `${TARGET_ROOT_SELECTOR} [data-testid="virtuoso-item-list"]`;
-const MAX_MESSAGE_HISTORY = 20;
+const MAX_MESSAGE_HISTORY = 100;
 const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "strong", "u"]);
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
 const CONTRACT_ADDRESS_PATTERN = /(?<![0-9a-f])0x[0-9a-f]{40}(?![0-9a-f])/i;
