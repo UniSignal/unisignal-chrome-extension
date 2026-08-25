@@ -42,12 +42,59 @@ const MESSAGE_CSS = `
 const MESSAGE_STYLE_SHEET = new CSSStyleSheet();
 MESSAGE_STYLE_SHEET.replaceSync(MESSAGE_CSS);
 
+const DISPLAY_CONTROL_CSS = `
+  :host {
+    all: initial;
+    position: fixed;
+    top: 88px;
+    right: 16px;
+    z-index: 2147483647;
+    color: #f3f5f8;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  :host([data-mode="floating"]) { width: min(400px, calc(100vw - 32px)); }
+  * { box-sizing: border-box; }
+  .window {
+    overflow: hidden;
+    border: 1px solid rgb(101 214 196 / 38%);
+    border-radius: 10px;
+    background: rgb(12 20 23 / 96%);
+    box-shadow: 0 10px 30px rgb(0 0 0 / 38%);
+  }
+  .toolbar { display: flex; align-items: center; gap: 10px; padding: 7px 8px; }
+  .label { color: #65d6c4; font-size: 12px; font-weight: 700; }
+  .modes { display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: rgb(255 255 255 / 7%); }
+  button {
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: #9aa4b2;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+  button:hover { color: #f3f5f8; }
+  button[aria-pressed="true"] { background: #285f58; color: #f3f5f8; }
+  .messages { max-height: min(72vh, 720px); overflow-y: auto; border-top: 1px solid rgb(127 136 150 / 18%); }
+  :host([data-mode="mixed"]) .messages { display: none; }
+  .empty { padding: 18px; color: #7f8896; font-size: 12px; text-align: center; }
+`;
+const DISPLAY_CONTROL_STYLE_SHEET = new CSSStyleSheet();
+DISPLAY_CONTROL_STYLE_SHEET.replaceSync(DISPLAY_CONTROL_CSS);
+
 let messageHistory = [];
 let renderTimer;
 let reconnectTimer;
 let workerPort;
 let lastRenderSignature = "";
+let lastFloatingSignature = "";
 let activeTargetList;
+let displayMode = "mixed";
+let displayControl;
+let floatingMessages;
 const notificationAudio = new Audio(chrome.runtime.getURL("notification-sound.mp3"));
 
 function upsertMessage(message) {
@@ -235,6 +282,90 @@ function createMessageGroup(messages) {
   return host;
 }
 
+function setDisplayMode(mode) {
+  if (mode === displayMode) return;
+  displayMode = mode;
+  lastRenderSignature = "";
+  lastFloatingSignature = "";
+  scheduleRender();
+}
+
+function ensureDisplayControl() {
+  if (displayControl) {
+    if (!displayControl.isConnected) document.documentElement.append(displayControl);
+    return;
+  }
+
+  displayControl = document.createElement("unisignal-display-control");
+  displayControl.dataset.mode = displayMode;
+  const shadow = displayControl.attachShadow({ mode: "open" });
+  shadow.adoptedStyleSheets = [DISPLAY_CONTROL_STYLE_SHEET];
+
+  const window = document.createElement("div");
+  const toolbar = document.createElement("div");
+  const label = document.createElement("span");
+  const modes = document.createElement("div");
+  window.className = "window";
+  toolbar.className = "toolbar";
+  label.className = "label";
+  label.textContent = "UniSignal";
+  modes.className = "modes";
+
+  for (const [mode, text] of [["mixed", "混排"], ["floating", "悬浮窗"]]) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.mode = mode;
+    button.textContent = text;
+    button.addEventListener("click", () => setDisplayMode(mode));
+    modes.append(button);
+  }
+
+  floatingMessages = document.createElement("div");
+  floatingMessages.className = "messages";
+  toolbar.append(label, modes);
+  window.append(toolbar, floatingMessages);
+  shadow.append(window);
+  document.documentElement.append(displayControl);
+}
+
+function updateDisplayControl() {
+  ensureDisplayControl();
+  displayControl.dataset.mode = displayMode;
+  for (const button of displayControl.shadowRoot.querySelectorAll("button[data-mode]")) {
+    button.setAttribute("aria-pressed", String(button.dataset.mode === displayMode));
+  }
+}
+
+function removeMixedGroups() {
+  for (const list of document.querySelectorAll(TARGET_SELECTOR)) {
+    for (const group of list.querySelectorAll("unisignal-telegram-feed")) group.remove();
+  }
+}
+
+function renderFloatingFeed() {
+  const messages = [...messageHistory].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+  const signature = JSON.stringify(
+    messages.map(({ type, date, html, channel_id, message_id }) => [
+      type,
+      date,
+      html,
+      channel_id,
+      message_id,
+    ]),
+  );
+  if (signature === lastFloatingSignature) return;
+
+  if (messages.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "暂无消息";
+    floatingMessages.replaceChildren(empty);
+  } else {
+    floatingMessages.replaceChildren(createMessageGroup(messages));
+  }
+  lastFloatingSignature = signature;
+}
+
 function getVisibleTweets(targetList) {
   return [...targetList.querySelectorAll(":scope > [data-index]")]
     .map((wrapper) => {
@@ -290,10 +421,7 @@ function findActiveTargetList() {
   return activeList;
 }
 
-function renderMixedFeed() {
-  const targetList = findActiveTargetList();
-  if (!targetList) return;
-
+function renderMixedFeed(targetList) {
   const tweets = getVisibleTweets(targetList);
   if (tweets.length === 0) return;
 
@@ -312,9 +440,29 @@ function renderMixedFeed() {
   lastRenderSignature = signature;
 }
 
+function renderActiveMode() {
+  const targetList = findActiveTargetList();
+  if (!targetList) {
+    removeMixedGroups();
+    displayControl?.remove();
+    return;
+  }
+
+  updateDisplayControl();
+  if (displayMode === "floating") {
+    removeMixedGroups();
+    lastRenderSignature = "";
+    renderFloatingFeed();
+  } else {
+    floatingMessages.replaceChildren();
+    lastFloatingSignature = "";
+    renderMixedFeed(targetList);
+  }
+}
+
 function scheduleRender() {
   clearTimeout(renderTimer);
-  renderTimer = setTimeout(renderMixedFeed, 100);
+  renderTimer = setTimeout(renderActiveMode, 100);
 }
 
 function handleWorkerMessage(message) {
