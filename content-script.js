@@ -390,7 +390,7 @@ function ensureDisplayControl() {
         <span class="label">UniSignal</span>
         <div class="modes">
           <button type="button" data-mode="mixed">混排</button>
-          <button type="button" data-mode="floating">浮空</button>
+          <button type="button" data-mode="floating">悬浮</button>
         </div>
       </div>
       <div class="messages"></div>
