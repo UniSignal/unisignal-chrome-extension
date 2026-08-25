@@ -62,6 +62,8 @@ const DISPLAY_CONTROL_CSS = `
     box-shadow: 0 10px 30px rgb(0 0 0 / 38%);
   }
   .toolbar { display: flex; align-items: center; gap: 10px; padding: 7px 8px; }
+  :host([data-mode="floating"]) .toolbar { cursor: grab; touch-action: none; }
+  :host([data-mode="floating"]) .toolbar.dragging { cursor: grabbing; user-select: none; }
   .label { color: #65d6c4; font-size: 12px; font-weight: 700; }
   .modes { display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: rgb(255 255 255 / 7%); }
   button {
@@ -290,6 +292,48 @@ function setDisplayMode(mode) {
   scheduleRender();
 }
 
+function makeDisplayControlDraggable(toolbar) {
+  let dragStart;
+
+  function stopDragging(event) {
+    if (!dragStart || event.pointerId !== dragStart.pointerId) return;
+    dragStart = undefined;
+    toolbar.classList.remove("dragging");
+    if (toolbar.hasPointerCapture(event.pointerId)) toolbar.releasePointerCapture(event.pointerId);
+  }
+
+  toolbar.addEventListener("pointerdown", (event) => {
+    if (displayMode !== "floating" || event.button !== 0 || event.target.closest("button")) return;
+
+    const rect = displayControl.getBoundingClientRect();
+    dragStart = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      left: rect.left,
+      top: rect.top,
+    };
+    toolbar.setPointerCapture(event.pointerId);
+    toolbar.classList.add("dragging");
+    event.preventDefault();
+  });
+
+  toolbar.addEventListener("pointermove", (event) => {
+    if (!dragStart || event.pointerId !== dragStart.pointerId) return;
+
+    const maxLeft = Math.max(0, window.innerWidth - displayControl.offsetWidth);
+    const maxTop = Math.max(0, window.innerHeight - displayControl.offsetHeight);
+    const left = Math.min(Math.max(dragStart.left + event.clientX - dragStart.x, 0), maxLeft);
+    const top = Math.min(Math.max(dragStart.top + event.clientY - dragStart.y, 0), maxTop);
+    displayControl.style.left = `${left}px`;
+    displayControl.style.top = `${top}px`;
+    displayControl.style.right = "auto";
+  });
+
+  toolbar.addEventListener("pointerup", stopDragging);
+  toolbar.addEventListener("pointercancel", stopDragging);
+}
+
 function ensureDisplayControl() {
   if (displayControl) {
     if (!displayControl.isConnected) document.documentElement.append(displayControl);
@@ -322,6 +366,7 @@ function ensureDisplayControl() {
 
   floatingMessages = document.createElement("div");
   floatingMessages.className = "messages";
+  makeDisplayControlDraggable(toolbar);
   toolbar.append(label, modes);
   window.append(toolbar, floatingMessages);
   shadow.append(window);
