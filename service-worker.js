@@ -31,6 +31,13 @@ function upsertMessage(message) {
   chrome.storage.local.set({ messageHistory });
 }
 
+function deleteMessage(channelId, messageId) {
+  messageHistory = messageHistory.filter(
+    (item) => item.channel_id !== channelId || item.message_id !== messageId,
+  );
+  chrome.storage.local.set({ messageHistory });
+}
+
 function broadcastToContent(message) {
   for (const port of contentPorts) {
     try {
@@ -123,6 +130,22 @@ function connect(accessToken, resetBackoff = true) {
       return;
     }
     if (message?.type === "pong") return;
+    if (message?.type === "telegram_message_deleted") {
+      if (
+        !Number.isInteger(message.channel_id) ||
+        !Number.isInteger(message.message_id)
+      ) {
+        return;
+      }
+
+      deleteMessage(message.channel_id, message.message_id);
+      broadcastToContent({
+        type: "telegram-message-deleted",
+        channelId: message.channel_id,
+        messageId: message.message_id,
+      });
+      return;
+    }
     if (
       !["telegram_message", "telegram_message_edited"].includes(message?.type) ||
       typeof message.html !== "string" ||

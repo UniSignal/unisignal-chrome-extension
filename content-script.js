@@ -138,6 +138,12 @@ function upsertMessage(message) {
   messageHistory = messageHistory.slice(-MAX_MESSAGE_HISTORY);
 }
 
+function deleteMessage(channelId, messageId) {
+  messageHistory = messageHistory.filter(
+    (item) => item.channel_id !== channelId || item.message_id !== messageId,
+  );
+}
+
 function isAllowedLink(href) {
   try {
     return ALLOWED_LINK_PROTOCOLS.has(new URL(href).protocol);
@@ -540,6 +546,9 @@ function handleWorkerMessage(message) {
       notificationAudio.currentTime = 0;
       notificationAudio.play().catch(() => { });
     }
+  } else if (message.type === "telegram-message-deleted") {
+    deleteMessage(message.channelId, message.messageId);
+    scheduleRender();
   }
 }
 
