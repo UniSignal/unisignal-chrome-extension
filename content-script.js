@@ -52,18 +52,28 @@ const DISPLAY_CONTROL_CSS = `
     color: #f3f5f8;
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
-  :host([data-mode="floating"]) { width: min(400px, calc(100vw - 32px)); }
+  :host([data-mode="floating"]) {
+    width: var(--floating-width, min(400px, calc(100vw - 32px)));
+    height: var(--floating-height, min(760px, calc(100vh - 104px)));
+    min-width: 280px;
+    min-height: 160px;
+    max-width: 100vw;
+    max-height: 100vh;
+  }
   * { box-sizing: border-box; }
   .window {
+    position: relative;
+    display: flex;
+    height: 100%;
+    flex-direction: column;
     overflow: hidden;
     border: 1px solid rgb(101 214 196 / 38%);
     border-radius: 10px;
     background: rgb(12 20 23 / 96%);
     box-shadow: 0 10px 30px rgb(0 0 0 / 38%);
   }
-  .toolbar { display: flex; align-items: center; gap: 10px; padding: 7px 8px; }
-  :host([data-mode="floating"]) .toolbar { cursor: grab; touch-action: none; }
-  :host([data-mode="floating"]) .toolbar.dragging { cursor: grabbing; user-select: none; }
+  .toolbar { display: flex; flex: none; align-items: center; gap: 10px; padding: 7px 8px; cursor: grab; touch-action: none; }
+  .toolbar.dragging { cursor: grabbing; user-select: none; }
   .label { color: #65d6c4; font-size: 12px; font-weight: 700; }
   .modes { display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: rgb(255 255 255 / 7%); }
   button {
@@ -80,9 +90,30 @@ const DISPLAY_CONTROL_CSS = `
   }
   button:hover { color: #f3f5f8; }
   button[aria-pressed="true"] { background: #285f58; color: #f3f5f8; }
-  .messages { max-height: min(72vh, 720px); overflow-y: auto; border-top: 1px solid rgb(127 136 150 / 18%); }
+  .messages { min-height: 0; flex: 1; overflow-y: auto; border-top: 1px solid rgb(127 136 150 / 18%); }
   :host([data-mode="mixed"]) .messages { display: none; }
   .empty { padding: 18px; color: #7f8896; font-size: 12px; text-align: center; }
+  .resize-handle {
+    display: none;
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    width: 16px;
+    height: 16px;
+    cursor: nwse-resize;
+    touch-action: none;
+  }
+  :host([data-mode="floating"]) .resize-handle { display: block; }
+  .resize-handle::after {
+    content: "";
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    width: 7px;
+    height: 7px;
+    border-right: 2px solid #65d6c4;
+    border-bottom: 2px solid #65d6c4;
+  }
 `;
 const DISPLAY_CONTROL_STYLE_SHEET = new CSSStyleSheet();
 DISPLAY_CONTROL_STYLE_SHEET.replaceSync(DISPLAY_CONTROL_CSS);
@@ -303,7 +334,7 @@ function makeDisplayControlDraggable(toolbar) {
   }
 
   toolbar.addEventListener("pointerdown", (event) => {
-    if (displayMode !== "floating" || event.button !== 0 || event.target.closest("button")) return;
+    if (event.button !== 0 || event.target.closest("button")) return;
 
     const rect = displayControl.getBoundingClientRect();
     dragStart = {
@@ -334,6 +365,61 @@ function makeDisplayControlDraggable(toolbar) {
   toolbar.addEventListener("pointercancel", stopDragging);
 }
 
+function makeDisplayControlResizable(handle) {
+  let resizeStart;
+
+  function stopResizing(event) {
+    if (!resizeStart || event.pointerId !== resizeStart.pointerId) return;
+    resizeStart = undefined;
+    if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+  }
+
+  handle.addEventListener("pointerdown", (event) => {
+    if (displayMode !== "floating" || event.button !== 0) return;
+
+    const rect = displayControl.getBoundingClientRect();
+    resizeStart = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      width: rect.width,
+      height: rect.height,
+      left: rect.left,
+      top: rect.top,
+    };
+    handle.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+  });
+
+  handle.addEventListener("pointermove", (event) => {
+    if (!resizeStart || event.pointerId !== resizeStart.pointerId) return;
+
+    const maxWidth = Math.max(280, window.innerWidth - resizeStart.left);
+    const maxHeight = Math.max(160, window.innerHeight - resizeStart.top);
+    const width = Math.min(Math.max(resizeStart.width + event.clientX - resizeStart.x, 280), maxWidth);
+    const height = Math.min(Math.max(resizeStart.height + event.clientY - resizeStart.y, 160), maxHeight);
+    displayControl.style.setProperty("--floating-width", `${width}px`);
+    displayControl.style.setProperty("--floating-height", `${height}px`);
+  });
+
+  handle.addEventListener("pointerup", stopResizing);
+  handle.addEventListener("pointercancel", stopResizing);
+}
+
+function clampDisplayControlToViewport() {
+  if (!displayControl?.isConnected) return;
+
+  const rect = displayControl.getBoundingClientRect();
+  const left = Math.min(Math.max(rect.left, 0), Math.max(0, window.innerWidth - rect.width));
+  const top = Math.min(Math.max(rect.top, 0), Math.max(0, window.innerHeight - rect.height));
+  if (left === rect.left && top === rect.top) return;
+
+  displayControl.style.left = `${left}px`;
+  displayControl.style.top = `${top}px`;
+  displayControl.style.right = "auto";
+}
+
 function ensureDisplayControl() {
   if (displayControl) {
     if (!displayControl.isConnected) document.documentElement.append(displayControl);
@@ -349,13 +435,15 @@ function ensureDisplayControl() {
   const toolbar = document.createElement("div");
   const label = document.createElement("span");
   const modes = document.createElement("div");
+  const resizeHandle = document.createElement("div");
   window.className = "window";
   toolbar.className = "toolbar";
   label.className = "label";
   label.textContent = "UniSignal";
   modes.className = "modes";
+  resizeHandle.className = "resize-handle";
 
-  for (const [mode, text] of [["mixed", "混排"], ["floating", "悬浮窗"]]) {
+  for (const [mode, text] of [["mixed", "混排"], ["floating", "浮空"]]) {
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.mode = mode;
@@ -367,8 +455,9 @@ function ensureDisplayControl() {
   floatingMessages = document.createElement("div");
   floatingMessages.className = "messages";
   makeDisplayControlDraggable(toolbar);
+  makeDisplayControlResizable(resizeHandle);
   toolbar.append(label, modes);
-  window.append(toolbar, floatingMessages);
+  window.append(toolbar, floatingMessages, resizeHandle);
   shadow.append(window);
   document.documentElement.append(displayControl);
 }
@@ -503,6 +592,7 @@ function renderActiveMode() {
     lastFloatingSignature = "";
     renderMixedFeed(targetList);
   }
+  requestAnimationFrame(clampDisplayControlToViewport);
 }
 
 function scheduleRender() {
@@ -565,3 +655,5 @@ new MutationObserver((mutations) => {
   childList: true,
   subtree: true,
 });
+
+window.addEventListener("resize", clampDisplayControlToViewport);
