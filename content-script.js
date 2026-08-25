@@ -102,18 +102,9 @@ const DISPLAY_CONTROL_CSS = `
     height: 16px;
     cursor: nwse-resize;
     touch-action: none;
+    background: linear-gradient(135deg, transparent 55%, #65d6c4 55%);
   }
   :host([data-mode="floating"]) .resize-handle { display: block; }
-  .resize-handle::after {
-    content: "";
-    position: absolute;
-    right: 2px;
-    bottom: 2px;
-    width: 7px;
-    height: 7px;
-    border-right: 2px solid #65d6c4;
-    border-bottom: 2px solid #65d6c4;
-  }
 `;
 const DISPLAY_CONTROL_STYLE_SHEET = new CSSStyleSheet();
 DISPLAY_CONTROL_STYLE_SHEET.replaceSync(DISPLAY_CONTROL_CSS);
@@ -323,88 +314,51 @@ function setDisplayMode(mode) {
   scheduleRender();
 }
 
-function makeDisplayControlDraggable(toolbar) {
-  let dragStart;
+function makeDisplayControlInteractive(handle, resize = false) {
+  let start;
 
-  function stopDragging(event) {
-    if (!dragStart || event.pointerId !== dragStart.pointerId) return;
-    dragStart = undefined;
-    toolbar.classList.remove("dragging");
-    if (toolbar.hasPointerCapture(event.pointerId)) toolbar.releasePointerCapture(event.pointerId);
-  }
-
-  toolbar.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0 || event.target.closest("button")) return;
-
-    const rect = displayControl.getBoundingClientRect();
-    dragStart = {
-      pointerId: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-      left: rect.left,
-      top: rect.top,
-    };
-    toolbar.setPointerCapture(event.pointerId);
-    toolbar.classList.add("dragging");
-    event.preventDefault();
-  });
-
-  toolbar.addEventListener("pointermove", (event) => {
-    if (!dragStart || event.pointerId !== dragStart.pointerId) return;
-
-    const maxLeft = Math.max(0, window.innerWidth - displayControl.offsetWidth);
-    const maxTop = Math.max(0, window.innerHeight - displayControl.offsetHeight);
-    const left = Math.min(Math.max(dragStart.left + event.clientX - dragStart.x, 0), maxLeft);
-    const top = Math.min(Math.max(dragStart.top + event.clientY - dragStart.y, 0), maxTop);
-    displayControl.style.left = `${left}px`;
-    displayControl.style.top = `${top}px`;
-    displayControl.style.right = "auto";
-  });
-
-  toolbar.addEventListener("pointerup", stopDragging);
-  toolbar.addEventListener("pointercancel", stopDragging);
-}
-
-function makeDisplayControlResizable(handle) {
-  let resizeStart;
-
-  function stopResizing(event) {
-    if (!resizeStart || event.pointerId !== resizeStart.pointerId) return;
-    resizeStart = undefined;
+  function stop(event) {
+    if (!start || event.pointerId !== start.pointerId) return;
+    start = undefined;
+    handle.classList.remove("dragging");
     if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
   }
 
   handle.addEventListener("pointerdown", (event) => {
-    if (displayMode !== "floating" || event.button !== 0) return;
+    if (event.button !== 0 || event.target.closest("button")) return;
 
-    const rect = displayControl.getBoundingClientRect();
-    resizeStart = {
+    start = {
       pointerId: event.pointerId,
       x: event.clientX,
       y: event.clientY,
-      width: rect.width,
-      height: rect.height,
-      left: rect.left,
-      top: rect.top,
+      rect: displayControl.getBoundingClientRect(),
     };
     handle.setPointerCapture(event.pointerId);
+    handle.classList.add("dragging");
     event.preventDefault();
-    event.stopPropagation();
   });
 
   handle.addEventListener("pointermove", (event) => {
-    if (!resizeStart || event.pointerId !== resizeStart.pointerId) return;
+    if (!start || event.pointerId !== start.pointerId) return;
 
-    const maxWidth = Math.max(280, window.innerWidth - resizeStart.left);
-    const maxHeight = Math.max(160, window.innerHeight - resizeStart.top);
-    const width = Math.min(Math.max(resizeStart.width + event.clientX - resizeStart.x, 280), maxWidth);
-    const height = Math.min(Math.max(resizeStart.height + event.clientY - resizeStart.y, 160), maxHeight);
-    displayControl.style.setProperty("--floating-width", `${width}px`);
-    displayControl.style.setProperty("--floating-height", `${height}px`);
+    const deltaX = event.clientX - start.x;
+    const deltaY = event.clientY - start.y;
+    if (resize) {
+      const width = Math.min(Math.max(start.rect.width + deltaX, 280), window.innerWidth - start.rect.left);
+      const height = Math.min(Math.max(start.rect.height + deltaY, 160), window.innerHeight - start.rect.top);
+      displayControl.style.setProperty("--floating-width", `${width}px`);
+      displayControl.style.setProperty("--floating-height", `${height}px`);
+    } else {
+      const left = Math.min(Math.max(start.rect.left + deltaX, 0), window.innerWidth - start.rect.width);
+      const top = Math.min(Math.max(start.rect.top + deltaY, 0), window.innerHeight - start.rect.height);
+      displayControl.style.left = `${left}px`;
+      displayControl.style.top = `${top}px`;
+      displayControl.style.right = "auto";
+    }
   });
 
-  handle.addEventListener("pointerup", stopResizing);
-  handle.addEventListener("pointercancel", stopResizing);
+  handle.addEventListener("pointerup", stop);
+  handle.addEventListener("pointercancel", stop);
 }
 
 function clampDisplayControlToViewport() {
@@ -430,35 +384,26 @@ function ensureDisplayControl() {
   displayControl.dataset.mode = displayMode;
   const shadow = displayControl.attachShadow({ mode: "open" });
   shadow.adoptedStyleSheets = [DISPLAY_CONTROL_STYLE_SHEET];
-
-  const window = document.createElement("div");
-  const toolbar = document.createElement("div");
-  const label = document.createElement("span");
-  const modes = document.createElement("div");
-  const resizeHandle = document.createElement("div");
-  window.className = "window";
-  toolbar.className = "toolbar";
-  label.className = "label";
-  label.textContent = "UniSignal";
-  modes.className = "modes";
-  resizeHandle.className = "resize-handle";
-
-  for (const [mode, text] of [["mixed", "混排"], ["floating", "浮空"]]) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.mode = mode;
-    button.textContent = text;
-    button.addEventListener("click", () => setDisplayMode(mode));
-    modes.append(button);
-  }
-
-  floatingMessages = document.createElement("div");
-  floatingMessages.className = "messages";
-  makeDisplayControlDraggable(toolbar);
-  makeDisplayControlResizable(resizeHandle);
-  toolbar.append(label, modes);
-  window.append(toolbar, floatingMessages, resizeHandle);
-  shadow.append(window);
+  shadow.innerHTML = `
+    <div class="window">
+      <div class="toolbar">
+        <span class="label">UniSignal</span>
+        <div class="modes">
+          <button type="button" data-mode="mixed">混排</button>
+          <button type="button" data-mode="floating">浮空</button>
+        </div>
+      </div>
+      <div class="messages"></div>
+      <div class="resize-handle"></div>
+    </div>
+  `;
+  floatingMessages = shadow.querySelector(".messages");
+  shadow.addEventListener("click", (event) => {
+    const mode = event.target.closest("button")?.dataset.mode;
+    if (mode) setDisplayMode(mode);
+  });
+  makeDisplayControlInteractive(shadow.querySelector(".toolbar"));
+  makeDisplayControlInteractive(shadow.querySelector(".resize-handle"), true);
   document.documentElement.append(displayControl);
 }
 
@@ -470,23 +415,9 @@ function updateDisplayControl() {
   }
 }
 
-function removeMixedGroups() {
-  for (const list of document.querySelectorAll(TARGET_SELECTOR)) {
-    for (const group of list.querySelectorAll("unisignal-telegram-feed")) group.remove();
-  }
-}
-
 function renderFloatingFeed() {
   const messages = [...messageHistory].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
-  const signature = JSON.stringify(
-    messages.map(({ type, date, html, channel_id, message_id }) => [
-      type,
-      date,
-      html,
-      channel_id,
-      message_id,
-    ]),
-  );
+  const signature = JSON.stringify(messages);
   if (signature === lastFloatingSignature) return;
 
   if (messages.length === 0) {
@@ -577,19 +508,16 @@ function renderMixedFeed(targetList) {
 function renderActiveMode() {
   const targetList = findActiveTargetList();
   if (!targetList) {
-    removeMixedGroups();
     displayControl?.remove();
     return;
   }
 
   updateDisplayControl();
   if (displayMode === "floating") {
-    removeMixedGroups();
-    lastRenderSignature = "";
+    for (const group of targetList.querySelectorAll("unisignal-telegram-feed")) group.remove();
     renderFloatingFeed();
   } else {
     floatingMessages.replaceChildren();
-    lastFloatingSignature = "";
     renderMixedFeed(targetList);
   }
   requestAnimationFrame(clampDisplayControlToViewport);
