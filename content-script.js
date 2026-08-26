@@ -89,6 +89,8 @@ const DISPLAY_CONTROL_CSS = `
   .label { color: #65d6c4; font-size: 14px; font-weight: 700; }
   .modes { display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: rgb(255 255 255 / 7%); }
   .collapse { width: 26px; height: 26px; padding: 0; color: #65d6c4; font-weight: 700; }
+  :host([data-collapsed="true"]) .collapse { cursor: grab; }
+  :host([data-collapsed="true"]) .toolbar.dragging .collapse { cursor: grabbing; }
   button {
     padding: 6px 10px;
     border: 0;
@@ -137,6 +139,7 @@ let lastFloatingSignature = "";
 let activeTargetList;
 let displayMode = "mixed";
 let displayControlCollapsed = false;
+let suppressCollapseClick = false;
 let displayControl;
 let floatingMessages;
 let soundEnabled = true;
@@ -387,19 +390,33 @@ function makeDisplayControlInteractive(handle, resize = false) {
 
   function stop(event) {
     if (!start || event.pointerId !== start.pointerId) return;
+    if (event.type === "pointerup" && start.collapseButton && start.moved) {
+      suppressCollapseClick = true;
+      setTimeout(() => {
+        suppressCollapseClick = false;
+      });
+    }
     start = undefined;
     handle.classList.remove("dragging");
     if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
   }
 
   handle.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0 || event.target.closest("button")) return;
+    const collapseButton = event.target.closest('button[data-action="collapse"]');
+    if (
+      event.button !== 0 ||
+      (event.target.closest("button") && !(displayControlCollapsed && collapseButton))
+    ) {
+      return;
+    }
 
     start = {
       pointerId: event.pointerId,
       x: event.clientX,
       y: event.clientY,
       rect: displayControl.getBoundingClientRect(),
+      collapseButton: Boolean(collapseButton),
+      moved: false,
     };
     handle.setPointerCapture(event.pointerId);
     handle.classList.add("dragging");
@@ -411,6 +428,7 @@ function makeDisplayControlInteractive(handle, resize = false) {
 
     const deltaX = event.clientX - start.x;
     const deltaY = event.clientY - start.y;
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) start.moved = true;
     if (resize) {
       const width = Math.min(Math.max(start.rect.width + deltaX, 280), window.innerWidth - start.rect.left);
       const height = Math.min(Math.max(start.rect.height + deltaY, 160), window.innerHeight - start.rect.top);
@@ -470,6 +488,10 @@ function ensureDisplayControl() {
   floatingMessages = shadow.querySelector(".messages");
   shadow.addEventListener("click", (event) => {
     if (event.target.closest('button[data-action="collapse"]')) {
+      if (suppressCollapseClick) {
+        suppressCollapseClick = false;
+        return;
+      }
       displayControlCollapsed = !displayControlCollapsed;
       updateDisplayControl();
       return;
