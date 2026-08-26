@@ -394,11 +394,15 @@ function makeDisplayControlInteractive(handle, resize = false) {
 
   function stop(event) {
     if (!start || event.pointerId !== start.pointerId) return;
-    if (event.type === "pointerup" && start.collapseButton && start.moved) {
+    if (event.type === "pointerup" && start.collapseButton) {
       suppressCollapseClick = true;
       setTimeout(() => {
         suppressCollapseClick = false;
       });
+      if (!start.moved) {
+        displayControlCollapsed = !displayControlCollapsed;
+        updateDisplayControl();
+      }
     }
     start = undefined;
     handle.classList.remove("dragging");
@@ -424,7 +428,7 @@ function makeDisplayControlInteractive(handle, resize = false) {
     };
     handle.setPointerCapture(event.pointerId);
     handle.classList.add("dragging");
-    event.preventDefault();
+    if (!collapseButton) event.preventDefault();
   });
 
   handle.addEventListener("pointermove", (event) => {
