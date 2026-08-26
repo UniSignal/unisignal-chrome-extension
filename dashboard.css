@@ -125,6 +125,17 @@ h1 {
   accent-color: #65d6c4;
 }
 
+.channel-details {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.channel-id {
+  color: #8793a8;
+  font-size: 12px;
+}
+
 .range-control {
   display: flex;
   align-items: center;

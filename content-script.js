@@ -4,6 +4,8 @@ const MAX_MESSAGE_HISTORY = 100;
 const DEFAULT_MESSAGE_FONT_SIZE = 15;
 const MIN_MESSAGE_FONT_SIZE = 12;
 const MAX_MESSAGE_FONT_SIZE = 20;
+const PRIMARY_CHANNEL_ID = 3912057240;
+const SECONDARY_CHANNEL_ID = 1234567890;
 const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "strong", "u"]);
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
 const CONTRACT_ADDRESS_PATTERN = /(?<![0-9a-f])0x[0-9a-f]{40}(?![0-9a-f])/i;
@@ -124,6 +126,7 @@ let displayControl;
 let floatingMessages;
 let soundEnabled = true;
 let messageFontSize = DEFAULT_MESSAGE_FONT_SIZE;
+let secondaryChannelEnabled = false;
 const notificationAudio = new Audio(chrome.runtime.getURL("notification-sound.mp3"));
 
 function normalizeMessageFontSize(value) {
@@ -140,6 +143,13 @@ function applyMessageFontSize() {
   if (floatingHost) {
     floatingHost.style.setProperty("--message-font-size", `${messageFontSize}px`);
   }
+}
+
+function shouldDisplayMessage(message) {
+  if (!Number.isInteger(message.channel_id) || message.channel_id === PRIMARY_CHANNEL_ID) {
+    return true;
+  }
+  return message.channel_id === SECONDARY_CHANNEL_ID && secondaryChannelEnabled;
 }
 
 function upsertMessage(message) {
@@ -315,7 +325,7 @@ function createMessageGroup(messages) {
     const footer = document.createElement("div");
     const time = document.createElement("time");
     title.className = "title";
-    title.textContent = "聚合监控";
+    title.textContent = data.channel_id === SECONDARY_CHANNEL_ID ? "副频道" : "聚合监控";
     text.className = "text";
     appendSanitizedHtml(text, data.html);
     const contracts = markContractTargets(text);
@@ -444,7 +454,9 @@ function updateDisplayControl() {
 }
 
 function renderFloatingFeed() {
-  const messages = [...messageHistory].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+  const messages = messageHistory
+    .filter(shouldDisplayMessage)
+    .sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
   const signature = JSON.stringify(messages);
   if (signature === lastFloatingSignature) return;
 
@@ -474,7 +486,9 @@ function getVisibleTweets(targetList) {
 
 function buildBuckets(tweets) {
   const buckets = new Map();
-  const messages = [...messageHistory].sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+  const messages = messageHistory
+    .filter(shouldDisplayMessage)
+    .sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
 
   for (const message of messages) {
     const timestamp = Date.parse(message.date);
@@ -520,7 +534,9 @@ function renderMixedFeed(targetList) {
 
   const buckets = buildBuckets(tweets);
   const signature = JSON.stringify({
-    messages: messageHistory.map(({ type, date, html }) => [type, date, html]),
+    messages: messageHistory
+      .filter(shouldDisplayMessage)
+      .map(({ type, channel_id, date, html }) => [type, channel_id, date, html]),
     tweets: tweets.map(({ index, timestamp }) => [index, timestamp]),
   });
   const existingGroups = targetList.querySelectorAll("unisignal-telegram-feed");
@@ -563,7 +579,11 @@ function handleWorkerMessage(message) {
   } else if (message.type === "telegram-message") {
     upsertMessage(message.message);
     scheduleRender();
-    if (soundEnabled && message.message.type !== "telegram_message_edited") {
+    if (
+      soundEnabled &&
+      shouldDisplayMessage(message.message) &&
+      message.message.type !== "telegram_message_edited"
+    ) {
       notificationAudio.volume = getGmgnNotificationVolume();
       notificationAudio.currentTime = 0;
       notificationAudio.play().catch(() => { });
@@ -597,16 +617,25 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     messageFontSize = normalizeMessageFontSize(changes.messageFontSize.newValue);
     applyMessageFontSize();
   }
+  if (changes.secondaryChannelEnabled) {
+    secondaryChannelEnabled = changes.secondaryChannelEnabled.newValue === true;
+    scheduleRender();
+  }
 });
 
-chrome.storage.local.get({ soundEnabled: true, messageFontSize: DEFAULT_MESSAGE_FONT_SIZE }).then(
-  (settings) => {
+chrome.storage.local
+  .get({
+    soundEnabled: true,
+    messageFontSize: DEFAULT_MESSAGE_FONT_SIZE,
+    secondaryChannelEnabled: false,
+  })
+  .then((settings) => {
     soundEnabled = settings.soundEnabled !== false;
     messageFontSize = normalizeMessageFontSize(settings.messageFontSize);
+    secondaryChannelEnabled = settings.secondaryChannelEnabled === true;
     connectToWorker();
     scheduleRender();
-  },
-);
+  });
 
 function mutationAffectsFeed(mutation) {
   const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];

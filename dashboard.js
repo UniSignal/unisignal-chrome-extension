@@ -4,6 +4,7 @@ const connectionDetail = document.querySelector("#connectionDetail");
 const connectionForm = document.querySelector("#connectionForm");
 const accessTokenInput = document.querySelector("#accessToken");
 const reconnectButton = document.querySelector("#reconnect");
+const secondaryChannelEnabledInput = document.querySelector("#secondaryChannelEnabled");
 const soundEnabledInput = document.querySelector("#soundEnabled");
 const messageFontSizeInput = document.querySelector("#messageFontSize");
 const messageFontSizeValue = document.querySelector("#messageFontSizeValue");
@@ -38,6 +39,10 @@ reconnectButton.addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "reconnect" });
 });
 
+secondaryChannelEnabledInput.addEventListener("change", () => {
+  chrome.storage.local.set({ secondaryChannelEnabled: secondaryChannelEnabledInput.checked });
+});
+
 soundEnabledInput.addEventListener("change", () => {
   chrome.storage.local.set({ soundEnabled: soundEnabledInput.checked });
 });
@@ -61,8 +66,11 @@ chrome.runtime.sendMessage({ type: "get-status" }).then((status) => {
   renderConnectionState(status.state);
 });
 
-chrome.storage.local.get({ soundEnabled: true, messageFontSize: 15 }).then((settings) => {
-  soundEnabledInput.checked = settings.soundEnabled;
-  messageFontSizeInput.value = settings.messageFontSize;
-  messageFontSizeValue.value = `${messageFontSizeInput.value}px`;
-});
+chrome.storage.local
+  .get({ secondaryChannelEnabled: false, soundEnabled: true, messageFontSize: 15 })
+  .then((settings) => {
+    secondaryChannelEnabledInput.checked = settings.secondaryChannelEnabled;
+    soundEnabledInput.checked = settings.soundEnabled;
+    messageFontSizeInput.value = settings.messageFontSize;
+    messageFontSizeValue.value = `${messageFontSizeInput.value}px`;
+  });
