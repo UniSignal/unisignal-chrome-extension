@@ -137,7 +137,7 @@ h1 {
 }
 
 .range-control output {
-  width: 34px;
+  width: 40px;
   color: #aeb8ca;
   text-align: right;
 }
@@ -247,7 +247,7 @@ button:hover,
     width: 100%;
   }
 
-  .font-size-preference {
+  .range-preference {
     align-items: stretch;
     flex-direction: column;
   }

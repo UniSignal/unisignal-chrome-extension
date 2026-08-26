@@ -49,7 +49,14 @@
         <span>新消息通知声音</span>
         <input id="soundEnabled" type="checkbox" checked />
       </label>
-      <label class="preference font-size-preference" for="messageFontSize">
+      <label class="preference range-preference" for="notificationVolume">
+        <span>通知声音大小</span>
+        <span class="range-control">
+          <input id="notificationVolume" type="range" min="0" max="100" step="1" value="50" />
+          <output id="notificationVolumeValue" for="notificationVolume">50%</output>
+        </span>
+      </label>
+      <label class="preference range-preference" for="messageFontSize">
         <span>消息字体大小</span>
         <span class="range-control">
           <input id="messageFontSize" type="range" min="12" max="20" step="1" value="15" />

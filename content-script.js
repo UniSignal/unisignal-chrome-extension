@@ -4,6 +4,7 @@ const MAX_MESSAGE_HISTORY = 100;
 const DEFAULT_MESSAGE_FONT_SIZE = 15;
 const MIN_MESSAGE_FONT_SIZE = 12;
 const MAX_MESSAGE_FONT_SIZE = 20;
+const DEFAULT_NOTIFICATION_VOLUME = 50;
 const UNISIGNAL = 3912057240;
 const UNISIGNAL_FEED = 3808132947;
 const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "strong", "u"]);
@@ -125,6 +126,7 @@ let displayMode = "mixed";
 let displayControl;
 let floatingMessages;
 let soundEnabled = true;
+let notificationVolume = DEFAULT_NOTIFICATION_VOLUME;
 let messageFontSize = DEFAULT_MESSAGE_FONT_SIZE;
 let secondaryChannelEnabled = false;
 const notificationAudio = new Audio(chrome.runtime.getURL("notification-sound.mp3"));
@@ -133,6 +135,12 @@ function normalizeMessageFontSize(value) {
   const fontSize = Number(value);
   if (!Number.isFinite(fontSize)) return DEFAULT_MESSAGE_FONT_SIZE;
   return Math.min(Math.max(fontSize, MIN_MESSAGE_FONT_SIZE), MAX_MESSAGE_FONT_SIZE);
+}
+
+function normalizeNotificationVolume(value) {
+  const volume = Number(value);
+  if (!Number.isFinite(volume)) return DEFAULT_NOTIFICATION_VOLUME;
+  return Math.min(Math.max(volume, 0), 100);
 }
 
 function applyMessageFontSize() {
@@ -180,17 +188,6 @@ function isAllowedLink(href) {
     return ALLOWED_LINK_PROTOCOLS.has(new URL(href).protocol);
   } catch {
     return false;
-  }
-}
-
-function getGmgnNotificationVolume() {
-  try {
-    const chain =
-      new URLSearchParams(location.search).get("chain") || location.pathname.split("/")[1];
-    const volume = JSON.parse(localStorage.getItem("soundConfig"))?.[chain]?.notificationVolume;
-    return Number.isFinite(volume) ? Math.min(Math.max(volume, 0), 100) / 100 : 0.5;
-  } catch {
-    return 0.5;
   }
 }
 
@@ -584,7 +581,7 @@ function handleWorkerMessage(message) {
       shouldDisplayMessage(message.message) &&
       message.message.type !== "telegram_message_edited"
     ) {
-      notificationAudio.volume = getGmgnNotificationVolume();
+      notificationAudio.volume = notificationVolume / 100;
       notificationAudio.currentTime = 0;
       notificationAudio.play().catch(() => { });
     }
@@ -613,6 +610,9 @@ function connectToWorker() {
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") return;
   if (changes.soundEnabled) soundEnabled = changes.soundEnabled.newValue !== false;
+  if (changes.notificationVolume) {
+    notificationVolume = normalizeNotificationVolume(changes.notificationVolume.newValue);
+  }
   if (changes.messageFontSize) {
     messageFontSize = normalizeMessageFontSize(changes.messageFontSize.newValue);
     applyMessageFontSize();
@@ -626,11 +626,13 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 chrome.storage.local
   .get({
     soundEnabled: true,
+    notificationVolume: DEFAULT_NOTIFICATION_VOLUME,
     messageFontSize: DEFAULT_MESSAGE_FONT_SIZE,
     secondaryChannelEnabled: false,
   })
   .then((settings) => {
     soundEnabled = settings.soundEnabled !== false;
+    notificationVolume = normalizeNotificationVolume(settings.notificationVolume);
     messageFontSize = normalizeMessageFontSize(settings.messageFontSize);
     secondaryChannelEnabled = settings.secondaryChannelEnabled === true;
     connectToWorker();

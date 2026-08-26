@@ -8,6 +8,8 @@ const saveSettingsButton = document.querySelector("#saveSettings");
 const settingsDetail = document.querySelector("#settingsDetail");
 const secondaryChannelEnabledInput = document.querySelector("#secondaryChannelEnabled");
 const soundEnabledInput = document.querySelector("#soundEnabled");
+const notificationVolumeInput = document.querySelector("#notificationVolume");
+const notificationVolumeValue = document.querySelector("#notificationVolumeValue");
 const messageFontSizeInput = document.querySelector("#messageFontSize");
 const messageFontSizeValue = document.querySelector("#messageFontSizeValue");
 
@@ -45,6 +47,7 @@ saveSettingsButton.addEventListener("click", async () => {
   await chrome.storage.local.set({
     secondaryChannelEnabled: secondaryChannelEnabledInput.checked,
     soundEnabled: soundEnabledInput.checked,
+    notificationVolume: Number(notificationVolumeInput.value),
     messageFontSize: Number(messageFontSizeInput.value),
   });
   settingsDetail.textContent = "设置已保存";
@@ -54,7 +57,16 @@ messageFontSizeInput.addEventListener("input", () => {
   messageFontSizeValue.value = `${messageFontSizeInput.value}px`;
 });
 
-for (const input of [secondaryChannelEnabledInput, soundEnabledInput, messageFontSizeInput]) {
+notificationVolumeInput.addEventListener("input", () => {
+  notificationVolumeValue.value = `${notificationVolumeInput.value}%`;
+});
+
+for (const input of [
+  secondaryChannelEnabledInput,
+  soundEnabledInput,
+  notificationVolumeInput,
+  messageFontSizeInput,
+]) {
   input.addEventListener("input", () => {
     settingsDetail.textContent = "";
   });
@@ -72,10 +84,17 @@ chrome.runtime.sendMessage({ type: "get-status" }).then((status) => {
 });
 
 chrome.storage.local
-  .get({ secondaryChannelEnabled: false, soundEnabled: true, messageFontSize: 15 })
+  .get({
+    secondaryChannelEnabled: false,
+    soundEnabled: true,
+    notificationVolume: 50,
+    messageFontSize: 15,
+  })
   .then((settings) => {
     secondaryChannelEnabledInput.checked = settings.secondaryChannelEnabled;
     soundEnabledInput.checked = settings.soundEnabled;
+    notificationVolumeInput.value = settings.notificationVolume;
+    notificationVolumeValue.value = `${notificationVolumeInput.value}%`;
     messageFontSizeInput.value = settings.messageFontSize;
     messageFontSizeValue.value = `${messageFontSizeInput.value}px`;
   });
