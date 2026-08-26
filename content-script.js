@@ -4,8 +4,8 @@ const MAX_MESSAGE_HISTORY = 100;
 const DEFAULT_MESSAGE_FONT_SIZE = 15;
 const MIN_MESSAGE_FONT_SIZE = 12;
 const MAX_MESSAGE_FONT_SIZE = 20;
-const PRIMARY_CHANNEL_ID = 3912057240;
-const SECONDARY_CHANNEL_ID = 1234567890;
+const UNISIGNAL = 3912057240;
+const UNISIGNAL_FEED = 1234567890;
 const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "strong", "u"]);
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
 const CONTRACT_ADDRESS_PATTERN = /(?<![0-9a-f])0x[0-9a-f]{40}(?![0-9a-f])/i;
@@ -146,10 +146,10 @@ function applyMessageFontSize() {
 }
 
 function shouldDisplayMessage(message) {
-  if (!Number.isInteger(message.channel_id) || message.channel_id === PRIMARY_CHANNEL_ID) {
+  if (!Number.isInteger(message.channel_id) || message.channel_id === UNISIGNAL) {
     return true;
   }
-  return message.channel_id === SECONDARY_CHANNEL_ID && secondaryChannelEnabled;
+  return message.channel_id === UNISIGNAL_FEED && secondaryChannelEnabled;
 }
 
 function upsertMessage(message) {
@@ -325,7 +325,7 @@ function createMessageGroup(messages) {
     const footer = document.createElement("div");
     const time = document.createElement("time");
     title.className = "title";
-    title.textContent = data.channel_id === SECONDARY_CHANNEL_ID ? "副频道" : "聚合监控";
+    title.textContent = data.channel_id === UNISIGNAL_FEED ? "副频道" : "聚合监控";
     text.className = "text";
     appendSanitizedHtml(text, data.html);
     const contracts = markContractTargets(text);
