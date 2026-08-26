@@ -223,8 +223,11 @@ button:hover,
 
 .settings-actions {
   display: flex;
-  justify-content: flex-end;
   margin-top: 12px;
+}
+
+.settings-actions button {
+  width: 100%;
 }
 
 @media (max-width: 560px) {
@@ -240,10 +243,6 @@ button:hover,
   }
 
   .input-row button {
-    width: 100%;
-  }
-
-  .settings-actions button {
     width: 100%;
   }
 

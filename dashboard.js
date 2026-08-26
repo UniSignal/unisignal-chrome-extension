@@ -12,6 +12,7 @@ const notificationVolumeInput = document.querySelector("#notificationVolume");
 const notificationVolumeValue = document.querySelector("#notificationVolumeValue");
 const messageFontSizeInput = document.querySelector("#messageFontSize");
 const messageFontSizeValue = document.querySelector("#messageFontSizeValue");
+const notificationPreviewAudio = new Audio(chrome.runtime.getURL("notification-sound.mp3"));
 
 const STATE_LABELS = {
   connected: "已连接",
@@ -59,6 +60,12 @@ messageFontSizeInput.addEventListener("input", () => {
 
 notificationVolumeInput.addEventListener("input", () => {
   notificationVolumeValue.value = `${notificationVolumeInput.value}%`;
+});
+
+notificationVolumeInput.addEventListener("change", () => {
+  notificationPreviewAudio.volume = Number(notificationVolumeInput.value) / 100;
+  notificationPreviewAudio.currentTime = 0;
+  notificationPreviewAudio.play().catch(() => { });
 });
 
 for (const input of [
