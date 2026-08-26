@@ -1,6 +1,9 @@
 const TARGET_ROOT_SELECTOR = '[data-id="KEY_X_SNIPER_RND_V1"]';
 const TARGET_SELECTOR = `${TARGET_ROOT_SELECTOR} [data-testid="virtuoso-item-list"]`;
 const MAX_MESSAGE_HISTORY = 100;
+const DEFAULT_MESSAGE_FONT_SIZE = 15;
+const MIN_MESSAGE_FONT_SIZE = 12;
+const MAX_MESSAGE_FONT_SIZE = 20;
 const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "strong", "u"]);
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
 const CONTRACT_ADDRESS_PATTERN = /(?<![0-9a-f])0x[0-9a-f]{40}(?![0-9a-f])/i;
@@ -22,9 +25,9 @@ const MESSAGE_CSS = `
     background: rgb(16 28 31 / 96%);
   }
   article + article { margin-top: 7px; }
-  .title { margin-bottom: 6px; color: #65d6c4; font-size: 14px; font-weight: 700; }
-  .edited { margin-left: 6px; color: #7f8896; font-size: 12px; font-weight: 400; }
-  .text { color: #e1e6ed; font-size: 15px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .title { margin-bottom: 6px; color: #65d6c4; font-size: calc(var(--message-font-size, 15px) - 1px); font-weight: 700; }
+  .edited { margin-left: 6px; color: #7f8896; font-size: calc(var(--message-font-size, 15px) - 3px); font-weight: 400; }
+  .text { color: #e1e6ed; font-size: var(--message-font-size, 15px); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
   .text a { color: #57bfff; }
   .text [data-gmgn-contract] { cursor: pointer; }
   .text code { padding: 1px 4px; border-radius: 4px; background: rgb(255 255 255 / 8%); color: #aee8d8; font-family: "SFMono-Regular", Consolas, monospace; }
@@ -33,11 +36,11 @@ const MESSAGE_CSS = `
   .text blockquote { margin: 8px 0 0; padding-left: 9px; border-left: 3px solid #4f9189; color: #b4bdca; }
   .footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; margin-top: 8px; }
   .actions { display: flex; flex-wrap: wrap; gap: 5px; }
-  .action { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border: 1px solid rgb(127 136 150 / 45%); border-radius: 6px; background: rgb(255 255 255 / 5%); color: #cbd3dd; font-family: inherit; font-size: 12px; font-weight: 500; line-height: 1.4; text-decoration: none; cursor: pointer; }
+  .action { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border: 1px solid rgb(127 136 150 / 45%); border-radius: 6px; background: rgb(255 255 255 / 5%); color: #cbd3dd; font-family: inherit; font-size: calc(var(--message-font-size, 15px) - 3px); font-weight: 500; line-height: 1.4; text-decoration: none; cursor: pointer; }
   .action-icon { width: 18px; height: 18px; flex: none; }
   .action:hover { border-color: #65d6c4; color: #f3f5f8; }
   .telegram { color: #57bfff; }
-  time { flex: none; color: #7f8896; font-size: 12px; text-align: right; }
+  time { flex: none; color: #7f8896; font-size: calc(var(--message-font-size, 15px) - 3px); text-align: right; }
 `;
 const MESSAGE_STYLE_SHEET = new CSSStyleSheet();
 MESSAGE_STYLE_SHEET.replaceSync(MESSAGE_CSS);
@@ -119,7 +122,21 @@ let activeTargetList;
 let displayMode = "mixed";
 let displayControl;
 let floatingMessages;
+let soundEnabled = true;
+let messageFontSize = DEFAULT_MESSAGE_FONT_SIZE;
 const notificationAudio = new Audio(chrome.runtime.getURL("notification-sound.mp3"));
+
+function normalizeMessageFontSize(value) {
+  const fontSize = Number(value);
+  if (!Number.isFinite(fontSize)) return DEFAULT_MESSAGE_FONT_SIZE;
+  return Math.min(Math.max(fontSize, MIN_MESSAGE_FONT_SIZE), MAX_MESSAGE_FONT_SIZE);
+}
+
+function applyMessageFontSize() {
+  for (const host of document.querySelectorAll("unisignal-telegram-feed")) {
+    host.style.setProperty("--message-font-size", `${messageFontSize}px`);
+  }
+}
 
 function upsertMessage(message) {
   const hasIdentity =
@@ -271,6 +288,7 @@ function createMessageActions(data, contracts) {
 
 function createMessageGroup(messages) {
   const host = document.createElement("unisignal-telegram-feed");
+  host.style.setProperty("--message-font-size", `${messageFontSize}px`);
   const shadow = host.attachShadow({ mode: "open" });
   shadow.adoptedStyleSheets = [MESSAGE_STYLE_SHEET];
   shadow.addEventListener("click", (event) => {
@@ -541,7 +559,7 @@ function handleWorkerMessage(message) {
   } else if (message.type === "telegram-message") {
     upsertMessage(message.message);
     scheduleRender();
-    if (message.message.type !== "telegram_message_edited") {
+    if (soundEnabled && message.message.type !== "telegram_message_edited") {
       notificationAudio.volume = getGmgnNotificationVolume();
       notificationAudio.currentTime = 0;
       notificationAudio.play().catch(() => { });
@@ -568,8 +586,23 @@ function connectToWorker() {
   });
 }
 
-connectToWorker();
-scheduleRender();
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local") return;
+  if (changes.soundEnabled) soundEnabled = changes.soundEnabled.newValue !== false;
+  if (changes.messageFontSize) {
+    messageFontSize = normalizeMessageFontSize(changes.messageFontSize.newValue);
+    applyMessageFontSize();
+  }
+});
+
+chrome.storage.local.get({ soundEnabled: true, messageFontSize: DEFAULT_MESSAGE_FONT_SIZE }).then(
+  (settings) => {
+    soundEnabled = settings.soundEnabled !== false;
+    messageFontSize = normalizeMessageFontSize(settings.messageFontSize);
+    connectToWorker();
+    scheduleRender();
+  },
+);
 
 function mutationAffectsFeed(mutation) {
   const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];

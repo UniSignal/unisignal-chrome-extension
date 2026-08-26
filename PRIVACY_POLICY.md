@@ -16,6 +16,7 @@ Effective date: August 26, 2026
 - **Telegram 用户 ID 和频道成员状态**：服务器在启动时及之后每 6 小时读取指定频道的成员列表，并为其中的非机器人、未删除账号生成或保留 Access Token。这包括尚未在机器人中请求 Token 或尚未使用本扩展的频道成员。
 - **频道消息**：指定频道的新消息、编辑后的消息和删除通知会连同频道 ID、消息 ID 实时发送给已授权客户端。扩展使用这两个 ID 更新或删除同一条消息，并生成 Telegram 原消息链接。服务器不将消息写入数据库；扩展在 Chrome 本地存储中保留最近 100 条消息及其上述元数据。
 - **GMGN 网站内容和设置**：扩展仅在用户设备本地读取 GMGN 推特监控列表中的消息时间以混排消息，并读取 GMGN 通知音量设置以调整扩展通知音量；这些数据不会上传至服务器。
+- **扩展显示与声音偏好**：用户选择的通知声音开关和消息字体大小保存在 Chrome 本地存储中，仅用于控制扩展在本机的显示和声音；这些数据不会上传至服务器。
 - **运行日志**：服务器日志可能包含连接 IP、连接时间、错误信息和 Telegram 消息 ID，用于服务维护、安全和故障排查。
 
 本扩展不会读取或收集钱包私钥、助记词、交易签名、付款卡信息或 GMGN 账户密码。
@@ -40,6 +41,7 @@ Effective date: August 26, 2026
 - 服务器在 PostgreSQL 中保存 Telegram 用户 ID、Access Token 和创建时间。
 - 服务启动时及之后每 6 小时同步频道成员。用户退出频道后，其服务器端 Telegram 用户 ID 和 Access Token 会在下一次成功同步时被删除，现有 WebSocket 连接会被断开；通常不超过 6 小时，但同步失败时可能更久。
 - 最近 100 条频道消息及其频道 ID、消息 ID 保存在 Chrome 本地存储中。较旧消息会被自动替换；服务器收到 Telegram 删除通知时，对应消息也会被删除；其余消息保留至用户清除扩展数据或卸载扩展。
+- 通知声音开关和消息字体大小保存在 Chrome 本地存储中，直至用户再次调整、清除扩展数据或卸载扩展。
 - 运行日志仅在服务运营、安全和故障排查所需期间保留。
 
 ### 安全与用户选择
@@ -64,6 +66,7 @@ This policy applies to the UniSignal Telegram Feed Chrome extension and its supp
 - **Telegram user ID and channel membership status**: At startup and every six hours thereafter, the server reads the designated channel's member list and generates or retains an Access Token for each non-bot, non-deleted account. This includes channel members who have not requested a Token from the bot or used the Extension.
 - **Channel messages**: New messages, edited messages, and deletion notices from the designated channel are delivered in real time to authorized clients together with their channel IDs and message IDs. The Extension uses these IDs to update or delete the same message and generate links to the original Telegram messages. The server does not store messages in its database; the Extension keeps only the 100 most recent messages and this metadata in Chrome local storage.
 - **GMGN website content and settings**: The Extension locally reads message timestamps from the GMGN X monitoring feed for chronological placement and reads GMGN's notification-volume setting to adjust the Extension's notification volume. This data is not uploaded to the server.
+- **Extension display and sound preferences**: The notification-sound toggle and message font size selected by the user are stored in Chrome local storage solely to control the Extension's local display and sound. This data is not uploaded to the server.
 - **Operational logs**: Server logs may contain connection IP addresses, connection times, error details, and Telegram message IDs for maintenance, security, and troubleshooting.
 
 The Extension does not read or collect wallet private keys, seed phrases, transaction signatures, payment card information, or GMGN account passwords.
@@ -88,6 +91,7 @@ Our use of user data complies with the Chrome Web Store User Data Policy, includ
 - The server stores the Telegram user ID, Access Token, and creation time in PostgreSQL.
 - Membership is synchronized at service startup and every six hours. After a user leaves the channel, the server-side Telegram user ID and Access Token are deleted and existing WebSocket connections are closed at the next successful synchronization. This normally occurs within six hours but may take longer if synchronization fails.
 - The 100 most recent channel messages and their channel IDs and message IDs are stored in Chrome local storage. Older messages are automatically replaced, and a corresponding message is also removed when the server receives a Telegram deletion notice. Other stored messages remain until the user clears Extension data or uninstalls the Extension.
+- The notification-sound toggle and message font size remain in Chrome local storage until adjusted again, Extension data is cleared, or the Extension is uninstalled.
 - Operational logs are retained only as long as reasonably necessary for service operation, security, and troubleshooting.
 
 ### Security and User Choices
