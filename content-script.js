@@ -71,6 +71,7 @@ const DISPLAY_CONTROL_CSS = `
     max-width: 100vw;
     max-height: 100vh;
   }
+  :host([data-collapsed="true"]) { width: auto; height: auto; min-width: 0; min-height: 0; }
   * { box-sizing: border-box; }
   .window {
     position: relative;
@@ -87,6 +88,7 @@ const DISPLAY_CONTROL_CSS = `
   .toolbar.dragging { cursor: grabbing; user-select: none; }
   .label { color: #65d6c4; font-size: 14px; font-weight: 700; }
   .modes { display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: rgb(255 255 255 / 7%); }
+  .collapse { width: 26px; height: 26px; padding: 0; color: #65d6c4; font-weight: 700; }
   button {
     padding: 6px 10px;
     border: 0;
@@ -101,6 +103,11 @@ const DISPLAY_CONTROL_CSS = `
   }
   button:hover { color: #f3f5f8; }
   button[aria-pressed="true"] { background: #285f58; color: #f3f5f8; }
+  :host([data-collapsed="true"]) .window { height: auto; }
+  :host([data-collapsed="true"]) .toolbar { gap: 0; padding: 4px; }
+  :host([data-collapsed="true"]) .label,
+  :host([data-collapsed="true"]) .modes,
+  :host([data-collapsed="true"]) .messages { display: none; }
   .messages { min-height: 0; flex: 1; overflow-y: auto; border-top: 1px solid rgb(127 136 150 / 18%); }
   :host([data-mode="mixed"]) .messages { display: none; }
   .empty { padding: 18px; color: #7f8896; font-size: 14px; text-align: center; }
@@ -116,6 +123,7 @@ const DISPLAY_CONTROL_CSS = `
     background: linear-gradient(135deg, transparent 55%, #65d6c4 55%);
   }
   :host([data-mode="floating"]) .resize-handle { display: block; }
+  :host([data-collapsed="true"]) .resize-handle { display: none; }
 `;
 const DISPLAY_CONTROL_STYLE_SHEET = new CSSStyleSheet();
 DISPLAY_CONTROL_STYLE_SHEET.replaceSync(DISPLAY_CONTROL_CSS);
@@ -128,6 +136,7 @@ let lastRenderSignature = "";
 let lastFloatingSignature = "";
 let activeTargetList;
 let displayMode = "mixed";
+let displayControlCollapsed = false;
 let displayControl;
 let floatingMessages;
 let soundEnabled = true;
@@ -441,6 +450,7 @@ function ensureDisplayControl() {
 
   displayControl = document.createElement("unisignal-display-control");
   displayControl.dataset.mode = displayMode;
+  displayControl.dataset.collapsed = String(displayControlCollapsed);
   const shadow = displayControl.attachShadow({ mode: "open" });
   shadow.adoptedStyleSheets = [DISPLAY_CONTROL_STYLE_SHEET];
   shadow.innerHTML = `
@@ -451,6 +461,7 @@ function ensureDisplayControl() {
           <button type="button" data-mode="mixed">混排</button>
           <button type="button" data-mode="floating">悬浮</button>
         </div>
+        <button class="collapse" type="button" data-action="collapse"></button>
       </div>
       <div class="messages"></div>
       <div class="resize-handle"></div>
@@ -458,6 +469,11 @@ function ensureDisplayControl() {
   `;
   floatingMessages = shadow.querySelector(".messages");
   shadow.addEventListener("click", (event) => {
+    if (event.target.closest('button[data-action="collapse"]')) {
+      displayControlCollapsed = !displayControlCollapsed;
+      updateDisplayControl();
+      return;
+    }
     const mode = event.target.closest("button")?.dataset.mode;
     if (mode) setDisplayMode(mode);
   });
@@ -469,6 +485,11 @@ function ensureDisplayControl() {
 function updateDisplayControl() {
   ensureDisplayControl();
   displayControl.dataset.mode = displayMode;
+  displayControl.dataset.collapsed = String(displayControlCollapsed);
+  const collapseButton = displayControl.shadowRoot.querySelector('[data-action="collapse"]');
+  collapseButton.textContent = displayControlCollapsed ? "U" : "−";
+  collapseButton.title = displayControlCollapsed ? "展开显示控制" : "收起显示控制";
+  collapseButton.setAttribute("aria-label", collapseButton.title);
   for (const button of displayControl.shadowRoot.querySelectorAll("button[data-mode]")) {
     button.setAttribute("aria-pressed", String(button.dataset.mode === displayMode));
   }
