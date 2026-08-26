@@ -218,7 +218,15 @@ button:hover,
 }
 
 .actions {
-  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 14px;
+}
+
+.actions > * {
+  min-width: 0;
+  justify-content: center;
+  text-align: center;
 }
 
 .settings-actions {
@@ -230,6 +238,15 @@ button:hover,
   width: 100%;
   background: #2f746b;
   color: #f4f7ff;
+}
+
+#settingsDetail {
+  min-height: 0;
+  margin-top: 6px;
+}
+
+#settingsDetail:empty {
+  display: none;
 }
 
 @media (max-width: 560px) {
@@ -246,6 +263,10 @@ button:hover,
 
   .input-row button {
     width: 100%;
+  }
+
+  .actions {
+    grid-template-columns: 1fr;
   }
 
   .range-preference {
