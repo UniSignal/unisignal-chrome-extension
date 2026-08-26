@@ -1,4 +1,8 @@
-const TARGET_ROOT_SELECTOR = '[data-id="KEY_X_SNIPER_RND_V1"]';
+const PAGE_PARAMS = new URLSearchParams(location.search);
+const TARGET_ROOT_SELECTOR =
+  PAGE_PARAMS.get("popout") === "true" && PAGE_PARAMS.get("target") === "xTracker"
+    ? '[data-testid="virtuoso-scroller"]'
+    : '[data-id="KEY_X_SNIPER_RND_V1"]';
 const TARGET_SELECTOR = `${TARGET_ROOT_SELECTOR} [data-testid="virtuoso-item-list"]`;
 const MAX_MESSAGE_HISTORY = 100;
 const DEFAULT_MESSAGE_FONT_SIZE = 15;
