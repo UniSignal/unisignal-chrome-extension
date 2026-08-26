@@ -190,8 +190,7 @@ button:hover,
   filter: brightness(1.08);
 }
 
-.connection-form button,
-.settings-actions button {
+.connection-form button {
   background: #65d6c4;
   color: #071411;
 }
