@@ -27,6 +27,7 @@
     {
       "resources": [
         "notification-sound.mp3",
+        "icons/icon32.png",
         "icons/GMGN_logo.svg",
         "icons/Telegram_logo.svg"
       ],

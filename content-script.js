@@ -12,6 +12,7 @@ const DEFAULT_NOTIFICATION_VOLUME = 50;
 const UNISIGNAL = 3912057240;
 const UNISIGNAL_FEED = 3808132947;
 const UNISIGNAL_SOUND_URL = chrome.runtime.getURL("notification-sound.mp3");
+const UNISIGNAL_ICON_URL = chrome.runtime.getURL("icons/icon32.png");
 const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "strong", "u"]);
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
 const CONTRACT_ADDRESS_PATTERN = /(?<![0-9a-f])0x[0-9a-f]{40}(?![0-9a-f])/i;
@@ -89,6 +90,9 @@ const DISPLAY_CONTROL_CSS = `
   .label { color: #65d6c4; font-size: 14px; font-weight: 700; }
   .modes { display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: rgb(255 255 255 / 7%); }
   .collapse { width: 26px; height: 26px; padding: 0; color: #65d6c4; font-weight: 700; }
+  .expand-icon { display: none; width: 16px; height: 16px; margin: auto; }
+  :host([data-collapsed="true"]) .collapse-mark { display: none; }
+  :host([data-collapsed="true"]) .expand-icon { display: block; }
   :host([data-collapsed="true"]) .collapse { cursor: grab; }
   :host([data-collapsed="true"]) .toolbar.dragging .collapse { cursor: grabbing; }
   button {
@@ -479,7 +483,10 @@ function ensureDisplayControl() {
           <button type="button" data-mode="mixed">混排</button>
           <button type="button" data-mode="floating">悬浮</button>
         </div>
-        <button class="collapse" type="button" data-action="collapse"></button>
+        <button class="collapse" type="button" data-action="collapse">
+          <span class="collapse-mark" aria-hidden="true">−</span>
+          <img class="expand-icon" src="${UNISIGNAL_ICON_URL}" alt="" />
+        </button>
       </div>
       <div class="messages"></div>
       <div class="resize-handle"></div>
@@ -509,7 +516,6 @@ function updateDisplayControl() {
   displayControl.dataset.mode = displayMode;
   displayControl.dataset.collapsed = String(displayControlCollapsed);
   const collapseButton = displayControl.shadowRoot.querySelector('[data-action="collapse"]');
-  collapseButton.textContent = displayControlCollapsed ? "U" : "−";
   collapseButton.title = displayControlCollapsed ? "展开显示控制" : "收起显示控制";
   collapseButton.setAttribute("aria-label", collapseButton.title);
   for (const button of displayControl.shadowRoot.querySelectorAll("button[data-mode]")) {
