@@ -223,11 +223,13 @@ button:hover,
 
 .settings-actions {
   display: flex;
-  margin-top: 12px;
+  margin-top: 18px;
 }
 
 .settings-actions button {
   width: 100%;
+  background: #2f746b;
+  color: #f4f7ff;
 }
 
 @media (max-width: 560px) {
