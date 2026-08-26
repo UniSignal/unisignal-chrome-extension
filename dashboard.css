@@ -93,6 +93,10 @@ h1 {
   margin-top: 28px;
 }
 
+.preferences-form {
+  margin: 0;
+}
+
 .preferences {
   margin-top: 20px;
   padding: 16px;
@@ -190,7 +194,8 @@ button:hover,
   filter: brightness(1.08);
 }
 
-.connection-form button {
+.connection-form button,
+.settings-actions button {
   background: #65d6c4;
   color: #071411;
 }
@@ -220,6 +225,12 @@ button:hover,
   margin-top: 20px;
 }
 
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
 @media (max-width: 560px) {
 
   header,
@@ -233,6 +244,10 @@ button:hover,
   }
 
   .input-row button {
+    width: 100%;
+  }
+
+  .settings-actions button {
     width: 100%;
   }
 

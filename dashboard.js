@@ -4,6 +4,8 @@ const connectionDetail = document.querySelector("#connectionDetail");
 const connectionForm = document.querySelector("#connectionForm");
 const accessTokenInput = document.querySelector("#accessToken");
 const reconnectButton = document.querySelector("#reconnect");
+const preferencesForm = document.querySelector("#preferencesForm");
+const settingsDetail = document.querySelector("#settingsDetail");
 const secondaryChannelEnabledInput = document.querySelector("#secondaryChannelEnabled");
 const soundEnabledInput = document.querySelector("#soundEnabled");
 const messageFontSizeInput = document.querySelector("#messageFontSize");
@@ -39,20 +41,22 @@ reconnectButton.addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "reconnect" });
 });
 
-secondaryChannelEnabledInput.addEventListener("change", () => {
-  chrome.storage.local.set({ secondaryChannelEnabled: secondaryChannelEnabledInput.checked });
-});
-
-soundEnabledInput.addEventListener("change", () => {
-  chrome.storage.local.set({ soundEnabled: soundEnabledInput.checked });
+preferencesForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  await chrome.storage.local.set({
+    secondaryChannelEnabled: secondaryChannelEnabledInput.checked,
+    soundEnabled: soundEnabledInput.checked,
+    messageFontSize: Number(messageFontSizeInput.value),
+  });
+  settingsDetail.textContent = "设置已保存";
 });
 
 messageFontSizeInput.addEventListener("input", () => {
   messageFontSizeValue.value = `${messageFontSizeInput.value}px`;
 });
 
-messageFontSizeInput.addEventListener("change", () => {
-  chrome.storage.local.set({ messageFontSize: Number(messageFontSizeInput.value) });
+preferencesForm.addEventListener("input", () => {
+  settingsDetail.textContent = "";
 });
 
 chrome.runtime.onMessage.addListener((message) => {
