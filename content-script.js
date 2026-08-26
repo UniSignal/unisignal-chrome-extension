@@ -87,14 +87,11 @@ const DISPLAY_CONTROL_CSS = `
   }
   .toolbar { display: flex; flex: none; align-items: center; gap: 10px; padding: 7px 8px; cursor: grab; touch-action: none; }
   .toolbar.dragging { cursor: grabbing; user-select: none; }
-  .label { color: #65d6c4; font-size: 14px; font-weight: 700; }
   .modes { display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: rgb(255 255 255 / 7%); }
-  .collapse { width: 26px; height: 26px; padding: 0; color: #65d6c4; font-weight: 700; }
-  .expand-icon { display: none; width: 16px; height: 16px; margin: auto; }
-  :host([data-collapsed="true"]) .collapse-mark { display: none; }
-  :host([data-collapsed="true"]) .expand-icon { display: block; }
-  :host([data-collapsed="true"]) .collapse { cursor: grab; }
-  :host([data-collapsed="true"]) .toolbar.dragging .collapse { cursor: grabbing; }
+  .brand-toggle { display: flex; width: 26px; height: 26px; padding: 0; align-items: center; justify-content: center; }
+  .brand-icon { width: 16px; height: 16px; }
+  :host([data-collapsed="true"]) .brand-toggle { cursor: grab; }
+  :host([data-collapsed="true"]) .toolbar.dragging .brand-toggle { cursor: grabbing; }
   button {
     padding: 6px 10px;
     border: 0;
@@ -111,7 +108,6 @@ const DISPLAY_CONTROL_CSS = `
   button[aria-pressed="true"] { background: #285f58; color: #f3f5f8; }
   :host([data-collapsed="true"]) .window { height: auto; }
   :host([data-collapsed="true"]) .toolbar { gap: 0; padding: 4px; }
-  :host([data-collapsed="true"]) .label,
   :host([data-collapsed="true"]) .modes,
   :host([data-collapsed="true"]) .messages { display: none; }
   .messages { min-height: 0; flex: 1; overflow-y: auto; border-top: 1px solid rgb(127 136 150 / 18%); }
@@ -389,6 +385,18 @@ function setDisplayMode(mode) {
   scheduleRender();
 }
 
+function setDisplayControlCollapsed(collapsed) {
+  if (collapsed && !displayControlCollapsed) {
+    const rect = displayControl.getBoundingClientRect();
+    displayControl.style.left = `${rect.left}px`;
+    displayControl.style.top = `${rect.top}px`;
+    displayControl.style.right = "auto";
+  }
+  displayControlCollapsed = collapsed;
+  updateDisplayControl();
+  requestAnimationFrame(clampDisplayControlToViewport);
+}
+
 function makeDisplayControlInteractive(handle, resize = false) {
   let start;
 
@@ -400,8 +408,7 @@ function makeDisplayControlInteractive(handle, resize = false) {
         suppressCollapseClick = false;
       });
       if (!start.moved) {
-        displayControlCollapsed = !displayControlCollapsed;
-        updateDisplayControl();
+        setDisplayControlCollapsed(!displayControlCollapsed);
       }
     }
     start = undefined;
@@ -411,10 +418,7 @@ function makeDisplayControlInteractive(handle, resize = false) {
 
   handle.addEventListener("pointerdown", (event) => {
     const collapseButton = event.target.closest('button[data-action="collapse"]');
-    if (
-      event.button !== 0 ||
-      (event.target.closest("button") && !(displayControlCollapsed && collapseButton))
-    ) {
+    if (event.button !== 0 || (event.target.closest("button") && !collapseButton)) {
       return;
     }
 
@@ -428,7 +432,7 @@ function makeDisplayControlInteractive(handle, resize = false) {
     };
     handle.setPointerCapture(event.pointerId);
     handle.classList.add("dragging");
-    if (!collapseButton) event.preventDefault();
+    event.preventDefault();
   });
 
   handle.addEventListener("pointermove", (event) => {
@@ -482,15 +486,13 @@ function ensureDisplayControl() {
   shadow.innerHTML = `
     <div class="window">
       <div class="toolbar">
-        <span class="label">UniSignal</span>
+        <button class="brand-toggle" type="button" data-action="collapse">
+          <img class="brand-icon" src="${UNISIGNAL_ICON_URL}" alt="" />
+        </button>
         <div class="modes">
           <button type="button" data-mode="mixed">混排</button>
           <button type="button" data-mode="floating">悬浮</button>
         </div>
-        <button class="collapse" type="button" data-action="collapse">
-          <span class="collapse-mark" aria-hidden="true">−</span>
-          <img class="expand-icon" src="${UNISIGNAL_ICON_URL}" alt="" />
-        </button>
       </div>
       <div class="messages"></div>
       <div class="resize-handle"></div>
@@ -503,8 +505,7 @@ function ensureDisplayControl() {
         suppressCollapseClick = false;
         return;
       }
-      displayControlCollapsed = !displayControlCollapsed;
-      updateDisplayControl();
+      setDisplayControlCollapsed(!displayControlCollapsed);
       return;
     }
     const mode = event.target.closest("button")?.dataset.mode;
