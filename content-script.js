@@ -136,6 +136,10 @@ function applyMessageFontSize() {
   for (const host of document.querySelectorAll("unisignal-telegram-feed")) {
     host.style.setProperty("--message-font-size", `${messageFontSize}px`);
   }
+  const floatingHost = floatingMessages?.querySelector("unisignal-telegram-feed");
+  if (floatingHost) {
+    floatingHost.style.setProperty("--message-font-size", `${messageFontSize}px`);
+  }
 }
 
 function upsertMessage(message) {
