@@ -31,39 +31,37 @@
       <p id="connectionDetail" class="detail"></p>
     </form>
 
-    <form id="preferencesForm" class="preferences-form">
-      <section class="preferences" aria-labelledby="channelsTitle">
-        <h2 id="channelsTitle">频道配置</h2>
-        <label class="preference" for="primaryChannel">
-          <span>聚合监控</span>
-          <input id="primaryChannel" type="checkbox" checked disabled />
-        </label>
-        <label class="preference" for="secondaryChannelEnabled">
-          <span>副频道</span>
-          <input id="secondaryChannelEnabled" type="checkbox" />
-        </label>
-      </section>
+    <section class="preferences" aria-labelledby="channelsTitle">
+      <h2 id="channelsTitle">频道配置</h2>
+      <label class="preference" for="primaryChannel">
+        <span>聚合监控</span>
+        <input id="primaryChannel" type="checkbox" checked disabled />
+      </label>
+      <label class="preference" for="secondaryChannelEnabled">
+        <span>副频道</span>
+        <input id="secondaryChannelEnabled" type="checkbox" />
+      </label>
+    </section>
 
-      <section class="preferences" aria-labelledby="preferencesTitle">
-        <h2 id="preferencesTitle">显示与声音</h2>
-        <label class="preference" for="soundEnabled">
-          <span>新消息通知声音</span>
-          <input id="soundEnabled" type="checkbox" checked />
-        </label>
-        <label class="preference font-size-preference" for="messageFontSize">
-          <span>消息字体大小</span>
-          <span class="range-control">
-            <input id="messageFontSize" type="range" min="12" max="20" step="1" value="15" />
-            <output id="messageFontSizeValue" for="messageFontSize">15px</output>
-          </span>
-        </label>
-      </section>
+    <section class="preferences" aria-labelledby="preferencesTitle">
+      <h2 id="preferencesTitle">显示与声音</h2>
+      <label class="preference" for="soundEnabled">
+        <span>新消息通知声音</span>
+        <input id="soundEnabled" type="checkbox" checked />
+      </label>
+      <label class="preference font-size-preference" for="messageFontSize">
+        <span>消息字体大小</span>
+        <span class="range-control">
+          <input id="messageFontSize" type="range" min="12" max="20" step="1" value="15" />
+          <output id="messageFontSizeValue" for="messageFontSize">15px</output>
+        </span>
+      </label>
+    </section>
 
-      <div class="settings-actions">
-        <button type="submit">保存设置</button>
-      </div>
-      <p id="settingsDetail" class="detail"></p>
-    </form>
+    <div class="settings-actions">
+      <button id="saveSettings" type="button">保存设置</button>
+    </div>
+    <p id="settingsDetail" class="detail"></p>
 
     <div class="actions">
       <a href="https://t.me/unisignal_relay_bot?start=token" target="_blank" rel="noopener noreferrer">获取 Access Token</a>

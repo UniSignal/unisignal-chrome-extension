@@ -4,7 +4,7 @@ const connectionDetail = document.querySelector("#connectionDetail");
 const connectionForm = document.querySelector("#connectionForm");
 const accessTokenInput = document.querySelector("#accessToken");
 const reconnectButton = document.querySelector("#reconnect");
-const preferencesForm = document.querySelector("#preferencesForm");
+const saveSettingsButton = document.querySelector("#saveSettings");
 const settingsDetail = document.querySelector("#settingsDetail");
 const secondaryChannelEnabledInput = document.querySelector("#secondaryChannelEnabled");
 const soundEnabledInput = document.querySelector("#soundEnabled");
@@ -41,8 +41,7 @@ reconnectButton.addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "reconnect" });
 });
 
-preferencesForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
+saveSettingsButton.addEventListener("click", async () => {
   await chrome.storage.local.set({
     secondaryChannelEnabled: secondaryChannelEnabledInput.checked,
     soundEnabled: soundEnabledInput.checked,
@@ -55,9 +54,11 @@ messageFontSizeInput.addEventListener("input", () => {
   messageFontSizeValue.value = `${messageFontSizeInput.value}px`;
 });
 
-preferencesForm.addEventListener("input", () => {
-  settingsDetail.textContent = "";
-});
+for (const input of [secondaryChannelEnabledInput, soundEnabledInput, messageFontSizeInput]) {
+  input.addEventListener("input", () => {
+    settingsDetail.textContent = "";
+  });
+}
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "connection-state") {
