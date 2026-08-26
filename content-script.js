@@ -342,7 +342,7 @@ function createMessageGroup(messages) {
     const footer = document.createElement("div");
     const time = document.createElement("time");
     title.className = "title";
-    title.textContent = data.channel_id === UNISIGNAL_FEED ? "副频道" : "聚合监控";
+    title.textContent = data.channel_id === UNISIGNAL_FEED ? "Unisignal Feed" : "聚合监控";
     text.className = "text";
     appendSanitizedHtml(text, data.html);
     const contracts = markContractTargets(text);
