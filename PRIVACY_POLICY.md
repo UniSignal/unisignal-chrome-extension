@@ -15,7 +15,7 @@ Effective date: August 26, 2026
 - **Access Token**：保存在 Chrome 本地存储中。建立加密 WSS 连接后，扩展会在连接内发送 Access Token 至 UniSignal 服务器进行鉴权。
 - **Telegram 用户 ID 和频道成员状态**：服务器在启动时及之后每 6 小时读取指定频道的成员列表，并为其中的非机器人、未删除账号生成或保留 Access Token。这包括尚未在机器人中请求 Token 或尚未使用本扩展的频道成员。
 - **频道消息**：指定频道的新消息、编辑后的消息和删除通知会连同频道 ID、消息 ID 实时发送给已授权客户端。扩展使用这两个 ID 更新或删除同一条消息，并生成 Telegram 原消息链接。服务器不将消息写入数据库；扩展在 Chrome 本地存储中保留最近 100 条消息及其上述元数据。
-- **GMGN 网站内容**：扩展仅在用户设备本地读取 GMGN 推特监控列表中的消息时间以混排消息；这些数据不会上传至服务器。
+- **GMGN 网站内容和设置**：扩展仅在用户设备本地读取 GMGN 推特监控列表中的消息时间以混排消息，并读取 GMGN 推特监控提示音的类型和开关状态，用于其他频道的本地提示音；这些数据不会上传至服务器。
 - **扩展显示与声音偏好**：用户选择的副频道显示开关、通知声音开关、通知音量和消息字体大小保存在 Chrome 本地存储中，仅用于控制扩展在本机的显示和声音；这些数据不会上传至服务器。
 - **运行日志**：服务器日志可能包含连接 IP、连接时间、错误信息和 Telegram 消息 ID，用于服务维护、安全和故障排查。
 
@@ -65,7 +65,7 @@ This policy applies to the UniSignal Telegram Feed Chrome extension and its supp
 - **Access Token**: Stored in Chrome local storage. After an encrypted WSS connection is established, the Extension sends the Access Token to the UniSignal server within that connection for authentication.
 - **Telegram user ID and channel membership status**: At startup and every six hours thereafter, the server reads the designated channel's member list and generates or retains an Access Token for each non-bot, non-deleted account. This includes channel members who have not requested a Token from the bot or used the Extension.
 - **Channel messages**: New messages, edited messages, and deletion notices from the designated channel are delivered in real time to authorized clients together with their channel IDs and message IDs. The Extension uses these IDs to update or delete the same message and generate links to the original Telegram messages. The server does not store messages in its database; the Extension keeps only the 100 most recent messages and this metadata in Chrome local storage.
-- **GMGN website content**: The Extension locally reads message timestamps from the GMGN X monitoring feed for chronological placement. This data is not uploaded to the server.
+- **GMGN website content and settings**: The Extension locally reads message timestamps from the GMGN X monitoring feed for chronological placement and reads the type and enabled state of GMGN's X-monitor sound for local notifications from other channels. This data is not uploaded to the server.
 - **Extension display and sound preferences**: The secondary-channel display toggle, notification-sound toggle, notification volume, and message font size selected by the user are stored in Chrome local storage solely to control the Extension's local display and sound. This data is not uploaded to the server.
 - **Operational logs**: Server logs may contain connection IP addresses, connection times, error details, and Telegram message IDs for maintenance, security, and troubleshooting.
 

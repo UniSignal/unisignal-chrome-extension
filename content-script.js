@@ -7,6 +7,7 @@ const MAX_MESSAGE_FONT_SIZE = 20;
 const DEFAULT_NOTIFICATION_VOLUME = 50;
 const UNISIGNAL = 3912057240;
 const UNISIGNAL_FEED = 3808132947;
+const UNISIGNAL_SOUND_URL = chrome.runtime.getURL("notification-sound.mp3");
 const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "strong", "u"]);
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
 const CONTRACT_ADDRESS_PATTERN = /(?<![0-9a-f])0x[0-9a-f]{40}(?![0-9a-f])/i;
@@ -129,7 +130,7 @@ let soundEnabled = true;
 let notificationVolume = DEFAULT_NOTIFICATION_VOLUME;
 let messageFontSize = DEFAULT_MESSAGE_FONT_SIZE;
 let secondaryChannelEnabled = false;
-const notificationAudio = new Audio(chrome.runtime.getURL("notification-sound.mp3"));
+const notificationAudio = new Audio(UNISIGNAL_SOUND_URL);
 
 function normalizeMessageFontSize(value) {
   const fontSize = Number(value);
@@ -188,6 +189,25 @@ function isAllowedLink(href) {
     return ALLOWED_LINK_PROTOCOLS.has(new URL(href).protocol);
   } catch {
     return false;
+  }
+}
+
+function getNotificationSoundUrl(message) {
+  if (!Number.isInteger(message.channel_id) || message.channel_id === UNISIGNAL) {
+    return UNISIGNAL_SOUND_URL;
+  }
+
+  try {
+    const chain =
+      new URLSearchParams(location.search).get("chain") || location.pathname.split("/")[1];
+    const config = JSON.parse(localStorage.getItem("soundConfig"))?.[chain];
+    if (!config?.xMonitorState || !config.xMonitorType || config.xMonitorType === "Off") {
+      return "";
+    }
+    return new URL(`/static/sounds/${encodeURIComponent(config.xMonitorType)}.mp3`, location.origin)
+      .href;
+  } catch {
+    return "";
   }
 }
 
@@ -581,9 +601,13 @@ function handleWorkerMessage(message) {
       shouldDisplayMessage(message.message) &&
       message.message.type !== "telegram_message_edited"
     ) {
-      notificationAudio.volume = notificationVolume / 100;
-      notificationAudio.currentTime = 0;
-      notificationAudio.play().catch(() => { });
+      const soundUrl = getNotificationSoundUrl(message.message);
+      if (soundUrl) {
+        notificationAudio.src = soundUrl;
+        notificationAudio.volume = notificationVolume / 100;
+        notificationAudio.currentTime = 0;
+        notificationAudio.play().catch(() => { });
+      }
     }
   } else if (message.type === "telegram-message-deleted") {
     deleteMessage(message.channelId, message.messageId);
