@@ -6,7 +6,30 @@
       : '[data-id="KEY_X_SNIPER_RND_V1"]';
   const ITEM_SELECTOR = `${MONITOR_SELECTOR} [data-testid="virtuoso-item-list"] > [data-index]`;
   const GMGN_TOKEN_PATH = /^\/[a-z0-9_-]+\/token\/0x[0-9a-f]{40}$/i;
+  const UNISIGNAL_ITEM_PREFIX = "unisignal:";
+  const USER_TAGS = [
+    "recommended",
+    "featured",
+    "kol",
+    "trader",
+    "master",
+    "politics",
+    "media",
+    "companies",
+    "founder",
+    "exchange",
+    "celebrity",
+    "binance_square",
+    "instagram",
+    "exchange_listing",
+    "other",
+    "user",
+  ];
+  const pendingMessages = new Map();
   let scanTimer;
+  let injectTimer;
+  let webpackRequire;
+  let quotationSocketManager;
 
   document.addEventListener("unisignal:navigate", () => {
     const path = document.documentElement.dataset.unisignalNavigate;
@@ -16,19 +39,118 @@
     window.next.router.push(path);
   });
 
-  function getItemTimestamp(wrapper) {
+  function getItemData(wrapper) {
     const item = wrapper.querySelector(":scope > .gmgn-vlist-item");
     const reactPropsKey = item && Object.keys(item).find((key) => key.startsWith("__reactProps$"));
-    return item?.[reactPropsKey]?.children?.props?.children?.props?.item?.tw_timestamp;
+    return item?.[reactPropsKey]?.children?.props?.children?.props?.item;
   }
 
   function scan() {
     for (const wrapper of document.querySelectorAll(ITEM_SELECTOR)) {
-      const timestamp = getItemTimestamp(wrapper);
+      const item = getItemData(wrapper);
+      const timestamp = item?.tw_timestamp;
       if (timestamp) wrapper.dataset.unisignalTimestamp = timestamp;
       else delete wrapper.dataset.unisignalTimestamp;
+
+      if (item?.id?.startsWith(UNISIGNAL_ITEM_PREFIX)) {
+        wrapper.dataset.unisignalMessageKey = item.id.slice(UNISIGNAL_ITEM_PREFIX.length);
+      } else {
+        if (wrapper.dataset.unisignalMessageKey) wrapper.hidden = false;
+        delete wrapper.dataset.unisignalMessageKey;
+      }
     }
   }
+
+  function getWebpackRequire() {
+    if (webpackRequire) return webpackRequire;
+    if (!Array.isArray(window.webpackChunk_N_E)) return;
+
+    window.webpackChunk_N_E.push([
+      [`unisignal-${Date.now()}`],
+      {},
+      (require) => {
+        webpackRequire = require;
+      },
+    ]);
+    return webpackRequire;
+  }
+
+  function getQuotationSocketManager() {
+    if (quotationSocketManager) return quotationSocketManager;
+
+    const require = getWebpackRequire();
+    for (const [moduleId, factory] of Object.entries(require?.m || {})) {
+      if (!/getQuotationSocketMgr\s*:/.test(String(factory))) continue;
+      try {
+        const module = require(moduleId);
+        if (typeof module.getQuotationSocketMgr !== "function") continue;
+        quotationSocketManager = module.getQuotationSocketMgr();
+        return quotationSocketManager;
+      } catch {
+        continue;
+      }
+    }
+  }
+
+  function toTwitterMessage(message) {
+    const timestamp = Date.parse(message.date);
+    return {
+      i: `${UNISIGNAL_ITEM_PREFIX}${message.key}`,
+      tw: "tweet",
+      ts: String(Number.isNaN(timestamp) ? Date.now() : timestamp),
+      cp: 1,
+      u: {
+        s: "UniSignal",
+        n: message.title,
+        a: message.avatar,
+        f: 0,
+        uid: `unisignal-${message.channelId}`,
+        url: message.telegramUrl,
+      },
+      c: { t: message.text },
+      ut: USER_TAGS,
+      pf: 3,
+      tt: "token",
+      t: message.token
+        ? {
+          c: message.token.chain,
+          s: "CA",
+          a: message.token.address,
+          i: "",
+        }
+        : {},
+    };
+  }
+
+  function flushMessages() {
+    clearTimeout(injectTimer);
+    const manager = getQuotationSocketManager();
+    if (!manager) {
+      injectTimer = setTimeout(flushMessages, 250);
+      return;
+    }
+
+    const messages = [...pendingMessages.values()].map(toTwitterMessage);
+    pendingMessages.clear();
+
+    manager.getXMonitorSocket().handleTokenData(messages);
+    manager.getXMonitorUserTokenSocket().handleUserTokenData(messages);
+    scheduleScan();
+  }
+
+  document.addEventListener("unisignal:inject-twitter", () => {
+    const serialized = document.documentElement.dataset.unisignalTwitterMessages;
+    delete document.documentElement.dataset.unisignalTwitterMessages;
+    if (!serialized) return;
+
+    try {
+      for (const message of JSON.parse(serialized)) pendingMessages.set(message.key, message);
+      clearTimeout(injectTimer);
+      injectTimer = setTimeout(flushMessages, 0);
+    } catch {
+      return;
+    }
+  });
 
   function scheduleScan() {
     clearTimeout(scanTimer);

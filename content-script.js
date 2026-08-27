@@ -134,7 +134,7 @@ let messageHistory = [];
 let renderTimer;
 let reconnectTimer;
 let workerPort;
-let lastRenderSignature = "";
+let lastInjectedSignature = "";
 let lastFloatingSignature = "";
 let activeTargetList;
 let displayMode = "mixed";
@@ -377,10 +377,59 @@ function createMessageGroup(messages) {
   return host;
 }
 
+function getMessageKey(message) {
+  if (Number.isInteger(message.channel_id) && Number.isInteger(message.message_id)) {
+    return `${message.channel_id}:${message.message_id}`;
+  }
+
+  let hash = 0;
+  for (const character of `${message.date}\n${message.html}`) {
+    hash = (Math.imul(hash, 31) + character.charCodeAt(0)) | 0;
+  }
+  return `legacy:${hash >>> 0}`;
+}
+
+function createTwitterMessage(message) {
+  const text = document.createElement("div");
+  appendSanitizedHtml(text, message.html);
+  const contracts = markContractTargets(text);
+  const hasTelegramUrl =
+    Number.isInteger(message.channel_id) && Number.isInteger(message.message_id);
+  const title = message.channel_id === UNISIGNAL_FEED ? "Unisignal Feed" : "聚合监控";
+
+  return {
+    key: getMessageKey(message),
+    channelId: Number.isInteger(message.channel_id) ? message.channel_id : 0,
+    title: message.type === "telegram_message_edited" ? `${title}（已编辑）` : title,
+    avatar: UNISIGNAL_ICON_URL,
+    text: text.textContent.trim() || " ",
+    date: message.date,
+    telegramUrl: hasTelegramUrl
+      ? `https://t.me/c/${message.channel_id}/${message.message_id}`
+      : "",
+    token: contracts[0],
+  };
+}
+
+function injectMessagesIntoTwitterFeed() {
+  if (displayMode !== "mixed") return;
+
+  const messages = messageHistory
+    .filter(shouldDisplayMessage)
+    .sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
+    .map(createTwitterMessage);
+  const signature = JSON.stringify(messages);
+  if (signature === lastInjectedSignature) return;
+
+  document.documentElement.dataset.unisignalTwitterMessages = signature;
+  document.dispatchEvent(new Event("unisignal:inject-twitter"));
+  lastInjectedSignature = signature;
+}
+
 function setDisplayMode(mode) {
   if (mode === displayMode) return;
   displayMode = mode;
-  lastRenderSignature = "";
+  lastInjectedSignature = "";
   lastFloatingSignature = "";
   scheduleRender();
 }
@@ -546,44 +595,6 @@ function renderFloatingFeed() {
   lastFloatingSignature = signature;
 }
 
-function getVisibleTweets(targetList) {
-  return [...targetList.querySelectorAll(":scope > [data-index]")]
-    .map((wrapper) => {
-      return {
-        index: Number(wrapper.dataset.index),
-        item: wrapper.querySelector(":scope > .gmgn-vlist-item"),
-        timestamp: Number(wrapper.dataset.unisignalTimestamp),
-      };
-    })
-    .filter(({ item, timestamp }) => item && Number.isFinite(timestamp) && timestamp > 0)
-    .sort((a, b) => a.index - b.index);
-}
-
-function buildBuckets(tweets) {
-  const buckets = new Map();
-  const messages = messageHistory
-    .filter(shouldDisplayMessage)
-    .sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
-
-  for (const message of messages) {
-    const timestamp = Date.parse(message.date);
-    if (Number.isNaN(timestamp)) continue;
-
-    let anchor;
-    if (timestamp > tweets[0].timestamp) {
-      if (tweets[0].index !== 0) continue;
-      anchor = tweets[0];
-    } else {
-      anchor = tweets.slice(1).find((tweet) => timestamp > tweet.timestamp);
-    }
-    if (!anchor) continue;
-
-    if (!buckets.has(anchor)) buckets.set(anchor, []);
-    buckets.get(anchor).push(message);
-  }
-  return buckets;
-}
-
 function findActiveTargetList() {
   const lists = [...document.querySelectorAll(TARGET_SELECTOR)];
   const activeList = lists.find((list) => {
@@ -598,30 +609,18 @@ function findActiveTargetList() {
 
   if (activeList !== activeTargetList) {
     activeTargetList = activeList;
-    lastRenderSignature = "";
+    lastInjectedSignature = "";
   }
   return activeList;
 }
 
-function renderMixedFeed(targetList) {
-  const tweets = getVisibleTweets(targetList);
-  if (tweets.length === 0) return;
-
-  const buckets = buildBuckets(tweets);
-  const signature = JSON.stringify({
-    messages: messageHistory
-      .filter(shouldDisplayMessage)
-      .map(({ type, channel_id, date, html }) => [type, channel_id, date, html]),
-    tweets: tweets.map(({ index, timestamp }) => [index, timestamp]),
-  });
-  const existingGroups = targetList.querySelectorAll("unisignal-telegram-feed");
-  if (signature === lastRenderSignature && existingGroups.length === buckets.size) return;
-
-  for (const group of existingGroups) group.remove();
-  for (const [anchor, messages] of buckets) {
-    anchor.item.before(createMessageGroup(messages));
+function updateInjectedRowVisibility(targetList) {
+  const visibleKeys = new Set(
+    messageHistory.filter(shouldDisplayMessage).map((message) => getMessageKey(message)),
+  );
+  for (const row of targetList.querySelectorAll(":scope > [data-unisignal-message-key]")) {
+    row.hidden = displayMode !== "mixed" || !visibleKeys.has(row.dataset.unisignalMessageKey);
   }
-  lastRenderSignature = signature;
 }
 
 function renderActiveMode() {
@@ -632,12 +631,13 @@ function renderActiveMode() {
   }
 
   updateDisplayControl();
+  updateInjectedRowVisibility(targetList);
   if (displayMode === "floating") {
     for (const group of targetList.querySelectorAll("unisignal-telegram-feed")) group.remove();
     renderFloatingFeed();
   } else {
     floatingMessages.replaceChildren();
-    renderMixedFeed(targetList);
+    injectMessagesIntoTwitterFeed();
   }
   requestAnimationFrame(clampDisplayControlToViewport);
 }
@@ -738,7 +738,7 @@ new MutationObserver((mutations) => {
   if (mutations.some(mutationAffectsFeed)) scheduleRender();
 }).observe(document.documentElement, {
   attributes: true,
-  attributeFilter: ["data-unisignal-timestamp"],
+  attributeFilter: ["data-unisignal-message-key", "data-unisignal-timestamp"],
   childList: true,
   subtree: true,
 });
