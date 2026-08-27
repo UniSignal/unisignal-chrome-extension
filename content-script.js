@@ -61,16 +61,14 @@ const DISPLAY_CONTROL_CSS = `
     top: 88px;
     right: 16px;
     z-index: 2147483647;
-    color: #f3f5f8;
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  }
-  :host([data-mode="floating"]) {
     width: var(--floating-width, min(400px, calc(100vw - 32px)));
     height: var(--floating-height, min(760px, calc(100vh - 104px)));
     min-width: 280px;
     min-height: 160px;
     max-width: 100vw;
     max-height: 100vh;
+    color: #f3f5f8;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
   * { box-sizing: border-box; }
   .window {
@@ -90,7 +88,7 @@ const DISPLAY_CONTROL_CSS = `
   .messages { min-height: 0; flex: 1; overflow-y: auto; border-top: 1px solid rgb(127 136 150 / 18%); }
   .empty { padding: 18px; color: #7f8896; font-size: 14px; text-align: center; }
   .resize-handle {
-    display: none;
+    display: block;
     position: absolute;
     right: 2px;
     bottom: 2px;
@@ -100,7 +98,6 @@ const DISPLAY_CONTROL_CSS = `
     touch-action: none;
     background: linear-gradient(135deg, transparent 55%, #65d6c4 55%);
   }
-  :host([data-mode="floating"]) .resize-handle { display: block; }
 `;
 const DISPLAY_CONTROL_STYLE_SHEET = new CSSStyleSheet();
 DISPLAY_CONTROL_STYLE_SHEET.replaceSync(DISPLAY_CONTROL_CSS);
@@ -473,7 +470,6 @@ function ensureDisplayControl() {
   }
 
   displayControl = document.createElement("unisignal-display-control");
-  displayControl.dataset.mode = displayMode;
   const shadow = displayControl.attachShadow({ mode: "open" });
   shadow.adoptedStyleSheets = [DISPLAY_CONTROL_STYLE_SHEET];
   shadow.innerHTML = `
