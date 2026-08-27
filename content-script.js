@@ -614,15 +614,6 @@ function findActiveTargetList() {
   return activeList;
 }
 
-function updateInjectedRowVisibility(targetList) {
-  const visibleKeys = new Set(
-    messageHistory.filter(shouldDisplayMessage).map((message) => getMessageKey(message)),
-  );
-  for (const row of targetList.querySelectorAll(":scope > [data-unisignal-message-key]")) {
-    row.hidden = !visibleKeys.has(row.dataset.unisignalMessageKey);
-  }
-}
-
 function renderActiveMode() {
   const targetList = findActiveTargetList();
   if (!targetList) {
@@ -631,7 +622,6 @@ function renderActiveMode() {
   }
 
   updateDisplayControl();
-  updateInjectedRowVisibility(targetList);
   if (displayMode === "floating") {
     for (const group of targetList.querySelectorAll("unisignal-telegram-feed")) group.remove();
     renderFloatingFeed();
@@ -738,7 +728,7 @@ new MutationObserver((mutations) => {
   if (mutations.some(mutationAffectsFeed)) scheduleRender();
 }).observe(document.documentElement, {
   attributes: true,
-  attributeFilter: ["data-unisignal-message-key", "data-unisignal-timestamp"],
+  attributeFilter: ["data-unisignal-timestamp"],
   childList: true,
   subtree: true,
 });

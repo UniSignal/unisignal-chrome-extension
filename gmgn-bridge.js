@@ -55,7 +55,6 @@
       if (item?.id?.startsWith(UNISIGNAL_ITEM_PREFIX)) {
         wrapper.dataset.unisignalMessageKey = item.id.slice(UNISIGNAL_ITEM_PREFIX.length);
       } else {
-        if (wrapper.dataset.unisignalMessageKey) wrapper.hidden = false;
         delete wrapper.dataset.unisignalMessageKey;
       }
     }
