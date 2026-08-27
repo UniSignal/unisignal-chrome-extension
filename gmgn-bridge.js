@@ -114,15 +114,17 @@
       c: { t: message.text },
       ut: [...USER_TAGS],
       pf: nativeUser.platform,
-      tt: "token",
-      t: message.token
+      ...(message.token
         ? {
+          tt: "token",
+          t: {
           c: message.token.chain,
           s: "CA",
           a: message.token.address,
           i: "",
+          },
         }
-        : {},
+        : {}),
     };
   }
 
