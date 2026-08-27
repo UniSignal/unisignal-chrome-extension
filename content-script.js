@@ -13,6 +13,7 @@ const UNISIGNAL = 3912057240;
 const UNISIGNAL_FEED = 3808132947;
 const UNISIGNAL_SOUND_URL = chrome.runtime.getURL("notification-sound.mp3");
 const UNISIGNAL_ICON_URL = chrome.runtime.getURL("icons/icon32.png");
+const UNISIGNAL_AVATAR_URL = chrome.runtime.getURL("icons/avatar.jpg");
 const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "strong", "u"]);
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
 const CONTRACT_ADDRESS_PATTERN = /(?<![0-9a-f])0x[0-9a-f]{40}(?![0-9a-f])/i;
@@ -383,7 +384,7 @@ function createTwitterMessage(message) {
   return {
     key: getMessageKey(message),
     title: message.type === "telegram_message_edited" ? `${title}（已编辑）` : title,
-    avatar: UNISIGNAL_ICON_URL,
+    avatar: UNISIGNAL_AVATAR_URL,
     text: text.textContent.trim() || " ",
     date: message.date,
     telegramUrl: hasTelegramUrl
