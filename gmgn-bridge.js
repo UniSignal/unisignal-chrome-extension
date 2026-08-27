@@ -104,7 +104,7 @@
       ts: String(Number.isNaN(timestamp) ? Date.now() : timestamp),
       cp: 1,
       u: {
-        s: "UniSignal",
+        s: "_unisignal",
         n: message.title,
         a: message.avatar,
         f: 0,
