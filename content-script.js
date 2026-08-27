@@ -29,27 +29,27 @@ const MESSAGE_CSS = `
   * { box-sizing: border-box; }
   article {
     padding: 10px;
-    border: 1px solid rgb(75 203 176 / 22%);
+    border: 1px solid #2e2e2e;
     border-radius: 8px;
-    background: rgb(12 32 35 / 96%);
+    background: linear-gradient(145deg, #151515, #0d0d0d);
   }
   article + article { margin-top: 7px; }
-  .title { margin-bottom: 6px; color: #68f0cf; font-size: calc(var(--message-font-size, 15px) - 1px); font-weight: 700; }
-  .edited { margin-left: 6px; color: #86aaa7; font-size: calc(var(--message-font-size, 15px) - 3px); font-weight: 400; }
-  .text { color: #e6f3f2; font-size: var(--message-font-size, 15px); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .text a { color: #5fc5ff; }
+  .title { margin-bottom: 6px; color: #6ee7d2; font-size: calc(var(--message-font-size, 15px) - 1px); font-weight: 700; }
+  .edited { margin-left: 6px; color: #888; font-size: calc(var(--message-font-size, 15px) - 3px); font-weight: 400; }
+  .text { color: #ededed; font-size: var(--message-font-size, 15px); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .text a { color: #fff; text-decoration-color: #555; text-underline-offset: 2px; }
   .text [data-gmgn-contract] { cursor: pointer; }
-  .text code { padding: 1px 4px; border-radius: 4px; background: #12383a; color: #9cf5df; font-family: "SFMono-Regular", Consolas, monospace; }
-  .text pre { margin: 8px 0 0; padding: 8px; overflow: auto; border-radius: 6px; background: #09191b; white-space: pre-wrap; }
+  .text code { padding: 1px 4px; border: 1px solid #303030; border-radius: 4px; background: #1a1a1a; color: #f5f5f5; font-family: "SFMono-Regular", Consolas, monospace; }
+  .text pre { margin: 8px 0 0; padding: 8px; overflow: auto; border-radius: 6px; background: #050505; white-space: pre-wrap; }
   .text pre code { padding: 0; background: transparent; }
-  .text blockquote { margin: 8px 0 0; padding-left: 9px; border-left: 3px solid #44b99f; color: #b7d2cf; }
+  .text blockquote { margin: 8px 0 0; padding-left: 9px; border-left: 3px solid #555; color: #b5b5b5; }
   .footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; margin-top: 8px; }
   .actions { display: flex; flex-wrap: wrap; gap: 5px; }
-  .action { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border: 1px solid #2d7168; border-radius: 6px; background: #153632; color: #cbece7; font-family: inherit; font-size: calc(var(--message-font-size, 15px) - 3px); font-weight: 500; line-height: 1.4; text-decoration: none; cursor: pointer; }
+  .action { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border: 1px solid #333; border-radius: 6px; background: #171717; color: #d8d8d8; font-family: inherit; font-size: calc(var(--message-font-size, 15px) - 3px); font-weight: 500; line-height: 1.4; text-decoration: none; cursor: pointer; }
   .action-icon { width: 18px; height: 18px; flex: none; }
-  .action:hover { border-color: #65e3c6; background: #1d4a43; color: #f3fffd; }
-  .telegram { color: #66c5ff; }
-  time { flex: none; color: #83aaa6; font-size: calc(var(--message-font-size, 15px) - 3px); text-align: right; }
+  .action:hover { border-color: #666; background: #222; color: #fff; }
+  .telegram { color: #ededed; }
+  time { flex: none; color: #888; font-size: calc(var(--message-font-size, 15px) - 3px); text-align: right; }
 `;
 const MESSAGE_STYLE_SHEET = new CSSStyleSheet();
 MESSAGE_STYLE_SHEET.replaceSync(MESSAGE_CSS);
@@ -77,20 +77,20 @@ const DISPLAY_CONTROL_CSS = `
     height: 100%;
     flex-direction: column;
     overflow: hidden;
-    border: 1px solid rgb(83 224 194 / 28%);
+    border: 1px solid #333;
     border-radius: 10px;
-    background: rgb(7 22 25 / 97%);
-    box-shadow: 0 16px 48px rgb(0 0 0 / 52%);
+    background: #080808;
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 4%), 0 20px 60px rgb(0 0 0 / 64%);
   }
-  .toolbar { display: flex; flex: none; align-items: center; justify-content: space-between; padding: 7px 8px; background: linear-gradient(90deg, rgb(28 83 75 / 38%), rgb(17 53 65 / 28%)); cursor: grab; touch-action: none; }
+  .toolbar { display: flex; flex: none; align-items: center; justify-content: space-between; padding: 7px 8px; background: linear-gradient(180deg, #171717, #0d0d0d); cursor: grab; touch-action: none; }
   .toolbar.dragging { cursor: grabbing; user-select: none; }
   .brand-icon { width: 16px; height: 16px; }
-  .close-button { display: flex; width: 22px; height: 22px; padding: 0; align-items: center; justify-content: center; border: 0; border-radius: 5px; background: transparent; color: #86aaa7; font-family: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
-  .close-button:hover { background: rgb(104 240 207 / 12%); color: #e6f3f2; }
-  .messages { min-height: 0; flex: 1; overflow-y: auto; border-top: 1px solid rgb(75 203 176 / 16%); scrollbar-color: #2b786e transparent; scrollbar-width: thin; }
+  .close-button { display: flex; width: 22px; height: 22px; padding: 0; align-items: center; justify-content: center; border: 0; border-radius: 5px; background: transparent; color: #888; font-family: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
+  .close-button:hover { background: #fff; color: #000; }
+  .messages { min-height: 0; flex: 1; overflow-y: auto; border-top: 1px solid #262626; scrollbar-color: #444 transparent; scrollbar-width: thin; }
   .messages::-webkit-scrollbar { width: 6px; }
-  .messages::-webkit-scrollbar-thumb { border-radius: 999px; background: #2b786e; }
-  .empty { padding: 18px; color: #83aaa6; font-size: 14px; text-align: center; }
+  .messages::-webkit-scrollbar-thumb { border-radius: 999px; background: #444; }
+  .empty { padding: 18px; color: #888; font-size: 14px; text-align: center; }
   .resize-handle {
     display: block;
     position: absolute;
@@ -100,7 +100,7 @@ const DISPLAY_CONTROL_CSS = `
     height: 16px;
     cursor: nwse-resize;
     touch-action: none;
-    background: linear-gradient(135deg, transparent 55%, #58dfc0 55%);
+    background: linear-gradient(135deg, transparent 55%, #666 55%);
   }
 `;
 const DISPLAY_CONTROL_STYLE_SHEET = new CSSStyleSheet();
