@@ -704,6 +704,12 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
 });
 
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type !== "toggle-display-mode") return;
+  if (displayMode === "mixed") displayControlCollapsed = false;
+  setDisplayMode(displayMode === "mixed" ? "floating" : "mixed");
+});
+
 chrome.storage.local
   .get({
     soundEnabled: true,
