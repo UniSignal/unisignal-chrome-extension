@@ -8,7 +8,6 @@
   const GMGN_TOKEN_PATH = /^\/[a-z0-9_-]+\/token\/0x[0-9a-f]{40}$/i;
   const UNISIGNAL_ITEM_PREFIX = "unisignal:";
   const USER_TAGS = [
-    "recommended",
     "featured",
     "kol",
     "trader",
@@ -23,7 +22,6 @@
     "instagram",
     "exchange_listing",
     "other",
-    "user",
   ];
   const pendingMessages = new Map();
   let scanTimer;
