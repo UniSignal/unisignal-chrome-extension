@@ -51,12 +51,6 @@
       const timestamp = item?.tw_timestamp;
       if (timestamp) wrapper.dataset.unisignalTimestamp = timestamp;
       else delete wrapper.dataset.unisignalTimestamp;
-
-      if (item?.id?.startsWith(UNISIGNAL_ITEM_PREFIX)) {
-        wrapper.dataset.unisignalMessageKey = item.id.slice(UNISIGNAL_ITEM_PREFIX.length);
-      } else {
-        delete wrapper.dataset.unisignalMessageKey;
-      }
     }
   }
 

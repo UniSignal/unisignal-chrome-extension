@@ -399,7 +399,6 @@ function createTwitterMessage(message) {
 
   return {
     key: getMessageKey(message),
-    channelId: Number.isInteger(message.channel_id) ? message.channel_id : 0,
     title: message.type === "telegram_message_edited" ? `${title}（已编辑）` : title,
     avatar: UNISIGNAL_ICON_URL,
     text: text.textContent.trim() || " ",
