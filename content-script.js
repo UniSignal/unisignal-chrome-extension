@@ -619,7 +619,7 @@ function updateInjectedRowVisibility(targetList) {
     messageHistory.filter(shouldDisplayMessage).map((message) => getMessageKey(message)),
   );
   for (const row of targetList.querySelectorAll(":scope > [data-unisignal-message-key]")) {
-    row.hidden = displayMode !== "mixed" || !visibleKeys.has(row.dataset.unisignalMessageKey);
+    row.hidden = !visibleKeys.has(row.dataset.unisignalMessageKey);
   }
 }
 
