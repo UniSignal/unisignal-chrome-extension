@@ -92,11 +92,24 @@
     }
   }
 
-  function toTwitterMessage(message) {
+  function getNativeUserIdentity() {
+    for (const wrapper of document.querySelectorAll(ITEM_SELECTOR)) {
+      const item = getItemData(wrapper);
+      if (!item || item.id?.startsWith(UNISIGNAL_ITEM_PREFIX)) continue;
+      if (!item.user?.twitter_user_id && !item.user?.screen_name) continue;
+      return {
+        id: item.user.twitter_user_id || item.user.screen_name,
+        platform: item.platform || 0,
+      };
+    }
+  }
+
+  function toTwitterMessage(message, nativeUser) {
     const timestamp = Date.parse(message.date);
     return {
       i: `${UNISIGNAL_ITEM_PREFIX}${message.key}`,
       tw: "tweet",
+      ti: `${UNISIGNAL_ITEM_PREFIX}${message.key}`,
       ts: String(Number.isNaN(timestamp) ? Date.now() : timestamp),
       cp: 1,
       u: {
@@ -104,12 +117,12 @@
         n: message.title,
         a: message.avatar,
         f: 0,
-        uid: `unisignal-${message.channelId}`,
+        uid: nativeUser.id,
         url: message.telegramUrl,
       },
       c: { t: message.text },
-      ut: USER_TAGS,
-      pf: 3,
+      ut: [...USER_TAGS],
+      pf: nativeUser.platform,
       tt: "token",
       t: message.token
         ? {
@@ -125,16 +138,27 @@
   function flushMessages() {
     clearTimeout(injectTimer);
     const manager = getQuotationSocketManager();
-    if (!manager) {
+    const nativeUser = getNativeUserIdentity();
+    if (!manager || !nativeUser) {
       injectTimer = setTimeout(flushMessages, 250);
       return;
     }
 
-    const messages = [...pendingMessages.values()].map(toTwitterMessage);
+    const messages = [...pendingMessages.values()];
     pendingMessages.clear();
 
-    manager.getXMonitorSocket().handleTokenData(messages);
-    manager.getXMonitorUserTokenSocket().handleUserTokenData(messages);
+    manager.getXMonitorSocket().handleBasicData(
+      messages.map((message) => toTwitterMessage(message, nativeUser)),
+    );
+    manager.getXMonitorSocket().handleTokenData(
+      messages.map((message) => toTwitterMessage(message, nativeUser)),
+    );
+    manager.getXMonitorUserBasicSocket().handleUserBasicData(
+      messages.map((message) => toTwitterMessage(message, nativeUser)),
+    );
+    manager.getXMonitorUserTokenSocket().handleUserTokenData(
+      messages.map((message) => toTwitterMessage(message, nativeUser)),
+    );
     scheduleScan();
   }
 
