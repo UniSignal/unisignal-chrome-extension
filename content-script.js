@@ -180,9 +180,12 @@ function isAllowedLink(href) {
   }
 }
 
-function getNotificationSoundUrl(message) {
+function getNotificationSound(message) {
   if (!Number.isInteger(message.channel_id) || message.channel_id === UNISIGNAL) {
-    return UNISIGNAL_SOUND_URL;
+    return {
+      url: UNISIGNAL_SOUND_URL,
+      volume: notificationVolume / 100,
+    };
   }
 
   try {
@@ -190,12 +193,18 @@ function getNotificationSoundUrl(message) {
       new URLSearchParams(location.search).get("chain") || location.pathname.split("/")[1];
     const config = JSON.parse(localStorage.getItem("soundConfig"))?.[chain];
     if (!config?.xMonitorState || !config.xMonitorType || config.xMonitorType === "Off") {
-      return "";
+      return null;
     }
-    return new URL(`/static/sounds/${encodeURIComponent(config.xMonitorType)}.mp3`, location.origin)
-      .href;
+    const volume = Number(config.notificationVolume);
+    return {
+      url: new URL(
+        `/static/sounds/${encodeURIComponent(config.xMonitorType)}.mp3`,
+        location.origin,
+      ).href,
+      volume: Number.isFinite(volume) ? Math.min(Math.max(volume, 0), 100) / 100 : 0.5,
+    };
   } catch {
-    return "";
+    return null;
   }
 }
 
@@ -562,10 +571,10 @@ function handleWorkerMessage(message) {
       shouldDisplayMessage(message.message) &&
       message.message.type !== "telegram_message_edited"
     ) {
-      const soundUrl = getNotificationSoundUrl(message.message);
-      if (soundUrl) {
-        notificationAudio.src = soundUrl;
-        notificationAudio.volume = notificationVolume / 100;
+      const sound = getNotificationSound(message.message);
+      if (sound) {
+        notificationAudio.src = sound.url;
+        notificationAudio.volume = sound.volume;
         notificationAudio.currentTime = 0;
         notificationAudio.play().catch(() => { });
       }
