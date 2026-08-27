@@ -82,9 +82,11 @@ const DISPLAY_CONTROL_CSS = `
     background: rgb(7 22 25 / 97%);
     box-shadow: 0 16px 48px rgb(0 0 0 / 52%);
   }
-  .toolbar { display: flex; flex: none; align-items: center; padding: 7px 8px; background: linear-gradient(90deg, rgb(28 83 75 / 38%), rgb(17 53 65 / 28%)); cursor: grab; touch-action: none; }
+  .toolbar { display: flex; flex: none; align-items: center; justify-content: space-between; padding: 7px 8px; background: linear-gradient(90deg, rgb(28 83 75 / 38%), rgb(17 53 65 / 28%)); cursor: grab; touch-action: none; }
   .toolbar.dragging { cursor: grabbing; user-select: none; }
   .brand-icon { width: 16px; height: 16px; }
+  .close-button { display: flex; width: 22px; height: 22px; padding: 0; align-items: center; justify-content: center; border: 0; border-radius: 5px; background: transparent; color: #86aaa7; font-family: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
+  .close-button:hover { background: rgb(104 240 207 / 12%); color: #e6f3f2; }
   .messages { min-height: 0; flex: 1; overflow-y: auto; border-top: 1px solid rgb(75 203 176 / 16%); scrollbar-color: #2b786e transparent; scrollbar-width: thin; }
   .messages::-webkit-scrollbar { width: 6px; }
   .messages::-webkit-scrollbar-thumb { border-radius: 999px; background: #2b786e; }
@@ -425,7 +427,7 @@ function makeDisplayControlInteractive(handle, resize = false) {
   }
 
   handle.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || event.target.closest("button")) return;
 
     start = {
       pointerId: event.pointerId,
@@ -487,12 +489,16 @@ function ensureDisplayControl() {
     <div class="window">
       <div class="toolbar">
         <img class="brand-icon" src="${UNISIGNAL_ICON_URL}" alt="" />
+        <button class="close-button" type="button" aria-label="关闭悬浮窗并切换为混排">×</button>
       </div>
       <div class="messages"></div>
       <div class="resize-handle"></div>
     </div>
   `;
   floatingMessages = shadow.querySelector(".messages");
+  shadow.querySelector(".close-button").addEventListener("click", () => {
+    setDisplayMode("mixed");
+  });
   makeDisplayControlInteractive(shadow.querySelector(".toolbar"));
   makeDisplayControlInteractive(shadow.querySelector(".resize-handle"), true);
   document.documentElement.append(displayControl);
