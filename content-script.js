@@ -434,6 +434,11 @@ function setDisplayMode(mode) {
 }
 
 function setDisplayControlCollapsed(collapsed) {
+  if (collapsed && displayMode === "floating") {
+    setDisplayMode("mixed");
+    return;
+  }
+
   if (collapsed && !displayControlCollapsed) {
     const rect = displayControl.getBoundingClientRect();
     displayControl.style.left = `${rect.left}px`;
@@ -569,7 +574,12 @@ function updateDisplayControl() {
   displayControl.dataset.mode = displayMode;
   displayControl.dataset.collapsed = String(displayControlCollapsed);
   const collapseButton = displayControl.shadowRoot.querySelector('[data-action="collapse"]');
-  collapseButton.title = displayControlCollapsed ? "展开显示控制" : "收起显示控制";
+  collapseButton.title =
+    displayMode === "floating"
+      ? "关闭悬浮窗并切换为混排"
+      : displayControlCollapsed
+        ? "展开显示控制"
+        : "收起显示控制";
   collapseButton.setAttribute("aria-label", collapseButton.title);
   for (const button of displayControl.shadowRoot.querySelectorAll("button[data-mode]")) {
     button.setAttribute("aria-pressed", String(button.dataset.mode === displayMode));
