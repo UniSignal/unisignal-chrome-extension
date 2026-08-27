@@ -118,10 +118,10 @@
         ? {
           tt: "token",
           t: {
-          c: message.token.chain,
-          s: "CA",
-          a: message.token.address,
-          i: "",
+            c: message.token.chain,
+            s: "CA",
+            a: message.token.address,
+            i: "",
           },
         }
         : {}),
