@@ -128,31 +128,41 @@
     };
   }
 
+  function hasNativeSubscribers(manager) {
+    try {
+      return [
+        manager.getXMonitorSocket().basicCache.getDataSubject(),
+        manager.getXMonitorSocket().tokenCache.getDataSubject(),
+        manager.getXMonitorUserBasicSocket().userBasicCache.getDataSubject(),
+        manager.getXMonitorUserTokenSocket().userTokenCache.getDataSubject(),
+      ].some((subject) => subject.observed);
+    } catch {
+      return false;
+    }
+  }
+
   function flushMessages() {
     clearTimeout(injectTimer);
     const manager = getQuotationSocketManager();
     const nativeUser = getNativeUserIdentity();
-    if (!manager || !nativeUser) {
+    if (!manager || !nativeUser || !hasNativeSubscribers(manager)) {
       injectTimer = setTimeout(flushMessages, 250);
       return;
     }
 
     const messages = [...pendingMessages.values()];
-    pendingMessages.clear();
-
-    manager.getXMonitorSocket().handleBasicData(
-      messages.map((message) => toTwitterMessage(message, nativeUser)),
-    );
-    manager.getXMonitorSocket().handleTokenData(
-      messages.map((message) => toTwitterMessage(message, nativeUser)),
-    );
-    manager.getXMonitorUserBasicSocket().handleUserBasicData(
-      messages.map((message) => toTwitterMessage(message, nativeUser)),
-    );
-    manager.getXMonitorUserTokenSocket().handleUserTokenData(
-      messages.map((message) => toTwitterMessage(message, nativeUser)),
-    );
-    scheduleScan();
+    const nativeMessages = messages.map((message) => toTwitterMessage(message, nativeUser));
+    try {
+      manager.getXMonitorSocket().handleBasicData(nativeMessages);
+      manager.getXMonitorSocket().handleTokenData(nativeMessages);
+      manager.getXMonitorUserBasicSocket().handleUserBasicData(nativeMessages);
+      manager.getXMonitorUserTokenSocket().handleUserTokenData(nativeMessages);
+      pendingMessages.clear();
+      scheduleScan();
+    } catch {
+      quotationSocketManager = undefined;
+      injectTimer = setTimeout(flushMessages, 250);
+    }
   }
 
   document.addEventListener("unisignal:inject-twitter", () => {
