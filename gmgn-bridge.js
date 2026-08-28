@@ -24,8 +24,10 @@
     "other",
   ];
   const pendingMessages = new Map();
+  const receivedMessageSignatures = new Map();
   let scanTimer;
   let injectTimer;
+  let injectRetryCount = 0;
   let webpackRequire;
   let quotationSocketManager;
 
@@ -141,12 +143,23 @@
     }
   }
 
+  function scheduleInjectRetry(reset = false) {
+    clearTimeout(injectTimer);
+    if (reset) injectRetryCount = 0;
+    const delay =
+      document.visibilityState === "visible" && injectRetryCount < 40 ? 50 : 500;
+    injectRetryCount += 1;
+    injectTimer = setTimeout(flushMessages, delay);
+  }
+
   function flushMessages() {
     clearTimeout(injectTimer);
+    if (pendingMessages.size === 0) return;
+
     const manager = getQuotationSocketManager();
     const nativeUser = getNativeUserIdentity();
     if (!manager || !nativeUser || !hasNativeSubscribers(manager)) {
-      injectTimer = setTimeout(flushMessages, 250);
+      scheduleInjectRetry();
       return;
     }
 
@@ -158,10 +171,11 @@
       manager.getXMonitorUserBasicSocket().handleUserBasicData(nativeMessages);
       manager.getXMonitorUserTokenSocket().handleUserTokenData(nativeMessages);
       pendingMessages.clear();
+      injectRetryCount = 0;
       scheduleScan();
     } catch {
       quotationSocketManager = undefined;
-      injectTimer = setTimeout(flushMessages, 250);
+      scheduleInjectRetry();
     }
   }
 
@@ -171,11 +185,24 @@
     if (!serialized) return;
 
     try {
-      for (const message of JSON.parse(serialized)) pendingMessages.set(message.key, message);
-      clearTimeout(injectTimer);
-      injectTimer = setTimeout(flushMessages, 0);
+      for (const message of JSON.parse(serialized)) {
+        const signature = JSON.stringify(message);
+        if (receivedMessageSignatures.get(message.key) === signature) continue;
+        receivedMessageSignatures.set(message.key, signature);
+        pendingMessages.set(message.key, message);
+      }
+      if (pendingMessages.size > 0) scheduleInjectRetry(true);
     } catch {
       return;
+    }
+  });
+
+  window.addEventListener("focus", () => {
+    if (pendingMessages.size > 0) scheduleInjectRetry(true);
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && pendingMessages.size > 0) {
+      scheduleInjectRetry(true);
     }
   });
 
