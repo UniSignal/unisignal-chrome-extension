@@ -130,14 +130,19 @@
     };
   }
 
-  function hasNativeSubscribers(manager) {
+  function hasNativeSubscribers(manager, messages) {
     try {
-      return [
+      const needsBasic = messages.some((message) => !message.token);
+      const needsToken = messages.some((message) => message.token);
+      const hasBasic = [
         manager.getXMonitorSocket().basicCache.getDataSubject(),
-        manager.getXMonitorSocket().tokenCache.getDataSubject(),
         manager.getXMonitorUserBasicSocket().userBasicCache.getDataSubject(),
+      ].some((subject) => subject.observed);
+      const hasToken = [
+        manager.getXMonitorSocket().tokenCache.getDataSubject(),
         manager.getXMonitorUserTokenSocket().userTokenCache.getDataSubject(),
       ].some((subject) => subject.observed);
+      return (!needsBasic || hasBasic) && (!needsToken || hasToken);
     } catch {
       return false;
     }
@@ -158,18 +163,27 @@
 
     const manager = getQuotationSocketManager();
     const nativeUser = getNativeUserIdentity();
-    if (!manager || !nativeUser || !hasNativeSubscribers(manager)) {
+    const messages = [...pendingMessages.values()];
+    if (!manager || !nativeUser || !hasNativeSubscribers(manager, messages)) {
       scheduleInjectRetry();
       return;
     }
 
-    const messages = [...pendingMessages.values()];
-    const nativeMessages = messages.map((message) => toTwitterMessage(message, nativeUser));
+    const basicMessages = messages
+      .filter((message) => !message.token)
+      .map((message) => toTwitterMessage(message, nativeUser));
+    const tokenMessages = messages
+      .filter((message) => message.token)
+      .map((message) => toTwitterMessage(message, nativeUser));
     try {
-      manager.getXMonitorSocket().handleBasicData(nativeMessages);
-      manager.getXMonitorSocket().handleTokenData(nativeMessages);
-      manager.getXMonitorUserBasicSocket().handleUserBasicData(nativeMessages);
-      manager.getXMonitorUserTokenSocket().handleUserTokenData(nativeMessages);
+      if (basicMessages.length > 0) {
+        manager.getXMonitorSocket().handleBasicData(basicMessages);
+        manager.getXMonitorUserBasicSocket().handleUserBasicData(basicMessages);
+      }
+      if (tokenMessages.length > 0) {
+        manager.getXMonitorSocket().handleTokenData(tokenMessages);
+        manager.getXMonitorUserTokenSocket().handleUserTokenData(tokenMessages);
+      }
       pendingMessages.clear();
       injectRetryCount = 0;
       scheduleScan();
