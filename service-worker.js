@@ -176,8 +176,10 @@ async function loadAndConnect() {
   connect(accessToken);
 }
 
-chrome.action.onClicked.addListener(() => {
-  chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") });
+chrome.action.onClicked.addListener((tab) => {
+  chrome.tabs.sendMessage(tab.id, { type: "toggle-display-mode" }).catch(() => {
+    chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") });
+  });
 });
 
 chrome.runtime.onConnect.addListener((port) => {
