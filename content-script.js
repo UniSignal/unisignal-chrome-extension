@@ -4,7 +4,7 @@ const TARGET_ROOT_SELECTOR =
     ? '[data-testid="virtuoso-scroller"]'
     : '[data-id="KEY_X_SNIPER_RND_V1"]';
 const TARGET_SELECTOR = `${TARGET_ROOT_SELECTOR} [data-testid="virtuoso-item-list"]`;
-const MAX_MESSAGE_HISTORY = 100;
+const MAX_MESSAGE_HISTORY = 20;
 const DEFAULT_MESSAGE_FONT_SIZE = 15;
 const MIN_MESSAGE_FONT_SIZE = 12;
 const MAX_MESSAGE_FONT_SIZE = 20;
@@ -414,7 +414,7 @@ function setDisplayMode(mode) {
   displayMode = mode;
   lastInjectedSignature = "";
   lastFloatingSignature = "";
-  scheduleRender();
+  scheduleRender(0);
 }
 
 function makeDisplayControlInteractive(handle, resize = false) {
@@ -561,9 +561,13 @@ function renderActiveMode() {
   requestAnimationFrame(clampDisplayControlToViewport);
 }
 
-function scheduleRender() {
+function scheduleRender(delay = 100) {
+  if (renderTimer && delay > 0) return;
   clearTimeout(renderTimer);
-  renderTimer = setTimeout(renderActiveMode, 100);
+  renderTimer = setTimeout(() => {
+    renderTimer = undefined;
+    renderActiveMode();
+  }, delay);
 }
 
 function handleWorkerMessage(message) {
@@ -572,7 +576,7 @@ function handleWorkerMessage(message) {
     scheduleRender();
   } else if (message.type === "telegram-message") {
     upsertMessage(message.message);
-    scheduleRender();
+    scheduleRender(0);
     if (
       soundEnabled &&
       shouldDisplayMessage(message.message) &&
@@ -588,7 +592,7 @@ function handleWorkerMessage(message) {
     }
   } else if (message.type === "telegram-message-deleted") {
     deleteMessage(message.channelId, message.messageId);
-    scheduleRender();
+    scheduleRender(0);
   }
 }
 
@@ -620,7 +624,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
   if (changes.secondaryChannelEnabled) {
     secondaryChannelEnabled = changes.secondaryChannelEnabled.newValue === true;
-    scheduleRender();
+    scheduleRender(0);
   }
 });
 

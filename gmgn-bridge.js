@@ -30,6 +30,7 @@
   let injectRetryCount = 0;
   let webpackRequire;
   let quotationSocketManager;
+  let nativeUserIdentity;
 
   document.addEventListener("unisignal:navigate", () => {
     const path = document.documentElement.dataset.unisignalNavigate;
@@ -88,13 +89,20 @@
   function getNativeUserIdentity() {
     for (const wrapper of document.querySelectorAll(ITEM_SELECTOR)) {
       const item = getItemData(wrapper);
-      if (!item || item.id?.startsWith(UNISIGNAL_ITEM_PREFIX)) continue;
+      if (
+        !item ||
+        (typeof item.id === "string" && item.id.startsWith(UNISIGNAL_ITEM_PREFIX))
+      ) {
+        continue;
+      }
       if (!item.user?.twitter_user_id && !item.user?.screen_name) continue;
-      return {
+      nativeUserIdentity = {
         id: item.user.twitter_user_id || item.user.screen_name,
         platform: item.platform || 0,
       };
+      return nativeUserIdentity;
     }
+    return nativeUserIdentity;
   }
 
   function toTwitterMessage(message, nativeUser) {
@@ -149,16 +157,20 @@
   }
 
   function scheduleInjectRetry(reset = false) {
-    clearTimeout(injectTimer);
     if (reset) injectRetryCount = 0;
+    if (injectTimer) return;
     const delay =
       document.visibilityState === "visible" && injectRetryCount < 40 ? 50 : 500;
     injectRetryCount += 1;
-    injectTimer = setTimeout(flushMessages, delay);
+    injectTimer = setTimeout(() => {
+      injectTimer = undefined;
+      flushMessages();
+    }, delay);
   }
 
   function flushMessages() {
     clearTimeout(injectTimer);
+    injectTimer = undefined;
     if (pendingMessages.size === 0) return;
 
     const manager = getQuotationSocketManager();
@@ -184,6 +196,9 @@
         manager.getXMonitorSocket().handleTokenData(tokenMessages);
         manager.getXMonitorUserTokenSocket().handleUserTokenData(tokenMessages);
       }
+      for (const message of messages) {
+        receivedMessageSignatures.set(message.key, JSON.stringify(message));
+      }
       pendingMessages.clear();
       injectRetryCount = 0;
       scheduleScan();
@@ -199,13 +214,24 @@
     if (!serialized) return;
 
     try {
-      for (const message of JSON.parse(serialized)) {
+      const messages = JSON.parse(serialized);
+      const messageKeys = new Set(messages.map((message) => message.key));
+      for (const key of receivedMessageSignatures.keys()) {
+        if (!messageKeys.has(key)) receivedMessageSignatures.delete(key);
+      }
+      for (const key of pendingMessages.keys()) {
+        if (!messageKeys.has(key)) pendingMessages.delete(key);
+      }
+
+      for (const message of messages) {
         const signature = JSON.stringify(message);
         if (receivedMessageSignatures.get(message.key) === signature) continue;
-        receivedMessageSignatures.set(message.key, signature);
         pendingMessages.set(message.key, message);
       }
-      if (pendingMessages.size > 0) scheduleInjectRetry(true);
+      if (pendingMessages.size > 0) {
+        injectRetryCount = 0;
+        flushMessages();
+      }
     } catch {
       return;
     }

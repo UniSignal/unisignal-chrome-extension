@@ -1,7 +1,7 @@
 const WS_URL = "wss://wss.unisignal.xyz/ws";
 const HEARTBEAT_INTERVAL_MS = 20_000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
-const MAX_MESSAGE_HISTORY = 100;
+const MAX_MESSAGE_HISTORY = 20;
 
 let socket = null;
 let socketGeneration = 0;
@@ -171,7 +171,12 @@ function connect(accessToken, resetBackoff = true) {
 async function loadAndConnect() {
   const { accessToken = "", messageHistory: storedMessages = [] } =
     await chrome.storage.local.get(["accessToken", "messageHistory"]);
-  if (Array.isArray(storedMessages)) messageHistory = storedMessages.slice(-MAX_MESSAGE_HISTORY);
+  if (Array.isArray(storedMessages)) {
+    messageHistory = storedMessages.slice(-MAX_MESSAGE_HISTORY);
+    if (messageHistory.length !== storedMessages.length) {
+      await chrome.storage.local.set({ messageHistory });
+    }
+  }
   broadcastToContent({ type: "snapshot", messageHistory });
   connect(accessToken);
 }
