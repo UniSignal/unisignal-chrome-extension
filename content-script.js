@@ -4,7 +4,7 @@ const TARGET_ROOT_SELECTOR =
     ? '[data-testid="virtuoso-scroller"]'
     : '[data-id="KEY_X_SNIPER_RND_V1"]';
 const TARGET_SELECTOR = `${TARGET_ROOT_SELECTOR} [data-testid="virtuoso-item-list"]`;
-const MAX_MESSAGE_HISTORY = 20;
+const MAX_MESSAGE_HISTORY = 100;
 const DEFAULT_MESSAGE_FONT_SIZE = 15;
 const MIN_MESSAGE_FONT_SIZE = 12;
 const MAX_MESSAGE_FONT_SIZE = 20;
