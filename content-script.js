@@ -72,7 +72,6 @@ const DISPLAY_CONTROL_CSS = `
     max-width: 100vw;
     max-height: 100vh;
   }
-  :host([data-collapsed="true"]) { width: auto; height: auto; min-width: 0; min-height: 0; }
   * { box-sizing: border-box; }
   .window {
     position: relative;
@@ -85,36 +84,30 @@ const DISPLAY_CONTROL_CSS = `
     background: rgb(12 20 23 / 96%);
     box-shadow: 0 10px 30px rgb(0 0 0 / 38%);
   }
-  .toolbar { display: flex; flex: none; align-items: center; gap: 10px; padding: 7px 8px; cursor: grab; touch-action: none; }
+  .toolbar { display: flex; flex: none; align-items: center; justify-content: space-between; padding: 7px 8px; cursor: grab; touch-action: none; }
   .toolbar.dragging { cursor: grabbing; user-select: none; }
-  .modes { display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: rgb(255 255 255 / 7%); }
-  .brand-toggle { display: flex; width: 26px; height: 26px; padding: 0; align-items: center; justify-content: center; }
   .brand-icon { width: 16px; height: 16px; }
-  :host([data-collapsed="true"]) .brand-toggle { cursor: grab; }
-  :host([data-collapsed="true"]) .toolbar.dragging .brand-toggle { cursor: grabbing; }
-  button {
-    padding: 6px 10px;
+  .close-button {
+    display: flex;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
     border: 0;
     border-radius: 5px;
     background: transparent;
     color: #9aa4b2;
     font-family: inherit;
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1.4;
+    font-size: 18px;
+    line-height: 1;
     cursor: pointer;
   }
-  button:hover { color: #f3f5f8; }
-  button[aria-pressed="true"] { background: #285f58; color: #f3f5f8; }
-  :host([data-collapsed="true"]) .window { height: auto; }
-  :host([data-collapsed="true"]) .toolbar { gap: 0; padding: 4px; }
-  :host([data-collapsed="true"]) .modes,
-  :host([data-collapsed="true"]) .messages { display: none; }
+  .close-button:hover { color: #f3f5f8; }
   .messages { min-height: 0; flex: 1; overflow-y: auto; border-top: 1px solid rgb(127 136 150 / 18%); }
-  :host([data-mode="mixed"]) .messages { display: none; }
   .empty { padding: 18px; color: #7f8896; font-size: 14px; text-align: center; }
   .resize-handle {
-    display: none;
+    display: block;
     position: absolute;
     right: 2px;
     bottom: 2px;
@@ -124,8 +117,6 @@ const DISPLAY_CONTROL_CSS = `
     touch-action: none;
     background: linear-gradient(135deg, transparent 55%, #65d6c4 55%);
   }
-  :host([data-mode="floating"]) .resize-handle { display: block; }
-  :host([data-collapsed="true"]) .resize-handle { display: none; }
 `;
 const DISPLAY_CONTROL_STYLE_SHEET = new CSSStyleSheet();
 DISPLAY_CONTROL_STYLE_SHEET.replaceSync(DISPLAY_CONTROL_CSS);
@@ -138,8 +129,6 @@ let lastRenderSignature = "";
 let lastFloatingSignature = "";
 let activeTargetList;
 let displayMode = "mixed";
-let displayControlCollapsed = false;
-let suppressCollapseClick = false;
 let displayControl;
 let floatingMessages;
 let soundEnabled = true;
@@ -385,55 +374,24 @@ function setDisplayMode(mode) {
   scheduleRender();
 }
 
-function setDisplayControlCollapsed(collapsed) {
-  if (collapsed && displayMode === "floating") {
-    setDisplayMode("mixed");
-    return;
-  }
-
-  if (collapsed && !displayControlCollapsed) {
-    const rect = displayControl.getBoundingClientRect();
-    displayControl.style.left = `${rect.left}px`;
-    displayControl.style.top = `${rect.top}px`;
-    displayControl.style.right = "auto";
-  }
-  displayControlCollapsed = collapsed;
-  updateDisplayControl();
-  requestAnimationFrame(clampDisplayControlToViewport);
-}
-
 function makeDisplayControlInteractive(handle, resize = false) {
   let start;
 
   function stop(event) {
     if (!start || event.pointerId !== start.pointerId) return;
-    if (event.type === "pointerup" && start.collapseButton) {
-      suppressCollapseClick = true;
-      setTimeout(() => {
-        suppressCollapseClick = false;
-      });
-      if (!start.moved) {
-        setDisplayControlCollapsed(!displayControlCollapsed);
-      }
-    }
     start = undefined;
     handle.classList.remove("dragging");
     if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
   }
 
   handle.addEventListener("pointerdown", (event) => {
-    const collapseButton = event.target.closest('button[data-action="collapse"]');
-    if (event.button !== 0 || (event.target.closest("button") && !collapseButton)) {
-      return;
-    }
+    if (event.button !== 0 || event.target.closest("button")) return;
 
     start = {
       pointerId: event.pointerId,
       x: event.clientX,
       y: event.clientY,
       rect: displayControl.getBoundingClientRect(),
-      collapseButton: Boolean(collapseButton),
-      moved: false,
     };
     handle.setPointerCapture(event.pointerId);
     handle.classList.add("dragging");
@@ -445,7 +403,6 @@ function makeDisplayControlInteractive(handle, resize = false) {
 
     const deltaX = event.clientX - start.x;
     const deltaY = event.clientY - start.y;
-    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) start.moved = true;
     if (resize) {
       const width = Math.min(Math.max(start.rect.width + deltaX, 280), window.innerWidth - start.rect.left);
       const height = Math.min(Math.max(start.rect.height + deltaY, 160), window.innerHeight - start.rect.top);
@@ -485,57 +442,25 @@ function ensureDisplayControl() {
 
   displayControl = document.createElement("unisignal-display-control");
   displayControl.dataset.mode = displayMode;
-  displayControl.dataset.collapsed = String(displayControlCollapsed);
   const shadow = displayControl.attachShadow({ mode: "open" });
   shadow.adoptedStyleSheets = [DISPLAY_CONTROL_STYLE_SHEET];
   shadow.innerHTML = `
     <div class="window">
       <div class="toolbar">
-        <button class="brand-toggle" type="button" data-action="collapse">
-          <img class="brand-icon" src="${UNISIGNAL_ICON_URL}" alt="" />
-        </button>
-        <div class="modes">
-          <button type="button" data-mode="mixed">混排</button>
-          <button type="button" data-mode="floating">悬浮</button>
-        </div>
+        <img class="brand-icon" src="${UNISIGNAL_ICON_URL}" alt="" />
+        <button class="close-button" type="button" aria-label="关闭悬浮窗并切换为混排">×</button>
       </div>
       <div class="messages"></div>
       <div class="resize-handle"></div>
     </div>
   `;
   floatingMessages = shadow.querySelector(".messages");
-  shadow.addEventListener("click", (event) => {
-    if (event.target.closest('button[data-action="collapse"]')) {
-      if (suppressCollapseClick) {
-        suppressCollapseClick = false;
-        return;
-      }
-      setDisplayControlCollapsed(!displayControlCollapsed);
-      return;
-    }
-    const mode = event.target.closest("button")?.dataset.mode;
-    if (mode) setDisplayMode(mode);
+  shadow.querySelector(".close-button").addEventListener("click", () => {
+    setDisplayMode("mixed");
   });
   makeDisplayControlInteractive(shadow.querySelector(".toolbar"));
   makeDisplayControlInteractive(shadow.querySelector(".resize-handle"), true);
   document.documentElement.append(displayControl);
-}
-
-function updateDisplayControl() {
-  ensureDisplayControl();
-  displayControl.dataset.mode = displayMode;
-  displayControl.dataset.collapsed = String(displayControlCollapsed);
-  const collapseButton = displayControl.shadowRoot.querySelector('[data-action="collapse"]');
-  collapseButton.title =
-    displayMode === "floating"
-      ? "关闭悬浮窗并切换为混排"
-      : displayControlCollapsed
-        ? "展开显示控制"
-        : "收起显示控制";
-  collapseButton.setAttribute("aria-label", collapseButton.title);
-  for (const button of displayControl.shadowRoot.querySelectorAll("button[data-mode]")) {
-    button.setAttribute("aria-pressed", String(button.dataset.mode === displayMode));
-  }
 }
 
 function renderFloatingFeed() {
@@ -641,12 +566,13 @@ function renderActiveMode() {
     return;
   }
 
-  updateDisplayControl();
   if (displayMode === "floating") {
+    ensureDisplayControl();
     for (const group of targetList.querySelectorAll("unisignal-telegram-feed")) group.remove();
     renderFloatingFeed();
   } else {
-    floatingMessages.replaceChildren();
+    displayControl?.remove();
+    floatingMessages?.replaceChildren();
     renderMixedFeed(targetList);
   }
   requestAnimationFrame(clampDisplayControlToViewport);
@@ -717,7 +643,6 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type !== "toggle-display-mode") return;
-  if (displayMode === "mixed") displayControlCollapsed = false;
   setDisplayMode(displayMode === "mixed" ? "floating" : "mixed");
 });
 
