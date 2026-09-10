@@ -339,6 +339,7 @@ function createMessageGroup(messages) {
 
   for (const data of messages) {
     const article = document.createElement("article");
+    article.dataset.messageKey = getMessageKey(data);
     const title = document.createElement("div");
     const text = document.createElement("div");
     const footer = document.createElement("div");
@@ -442,6 +443,11 @@ function makeDisplayControlInteractive(handle, resize = false) {
       y: event.clientY,
       rect: displayControl.getBoundingClientRect(),
     };
+    if (resize) {
+      displayControl.style.left = `${start.rect.left}px`;
+      displayControl.style.top = `${start.rect.top}px`;
+      displayControl.style.right = "auto";
+    }
     handle.setPointerCapture(event.pointerId);
     handle.classList.add("dragging");
     event.preventDefault();
@@ -524,7 +530,32 @@ function renderFloatingFeed() {
     empty.textContent = "暂无消息";
     floatingMessages.replaceChildren(empty);
   } else {
-    floatingMessages.replaceChildren(createMessageGroup(messages));
+    const group = createMessageGroup(messages);
+    const articles = new Map(
+      [...group.shadowRoot.querySelectorAll("article")]
+        .map((article) => [article.dataset.messageKey, article]),
+    );
+    const atTop = floatingMessages.scrollTop === 0;
+    let anchor;
+    let anchorTop;
+    if (!atTop) {
+      const viewportTop = floatingMessages.getBoundingClientRect().top;
+      const previousArticles = floatingMessages
+        .querySelector("unisignal-telegram-feed")?.shadowRoot.querySelectorAll("article") || [];
+      for (const article of previousArticles) {
+        const rect = article.getBoundingClientRect();
+        if (rect.bottom <= viewportTop || !articles.has(article.dataset.messageKey)) continue;
+        anchor = articles.get(article.dataset.messageKey);
+        anchorTop = rect.top;
+        break;
+      }
+    }
+    floatingMessages.replaceChildren(group);
+    if (atTop) {
+      floatingMessages.scrollTop = 0;
+    } else if (anchor) {
+      floatingMessages.scrollTop += anchor.getBoundingClientRect().top - anchorTop;
+    }
   }
   lastFloatingSignature = signature;
 }
