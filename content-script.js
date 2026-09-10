@@ -112,6 +112,8 @@ let renderTimer;
 let reconnectTimer;
 let workerPort;
 let lastInjectedSignature = "";
+let twitterMessagesDirty = true;
+let twitterMessagesSignature = "";
 let lastFloatingSignature = "";
 let activeTargetList;
 let displayMode = "mixed";
@@ -397,11 +399,15 @@ function createTwitterMessage(message) {
 function injectMessagesIntoTwitterFeed() {
   if (displayMode !== "mixed") return;
 
-  const messages = messageHistory
-    .filter(shouldDisplayMessage)
-    .sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
-    .map(createTwitterMessage);
-  const signature = JSON.stringify(messages);
+  if (twitterMessagesDirty) {
+    const messages = messageHistory
+      .filter(shouldDisplayMessage)
+      .sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
+      .map(createTwitterMessage);
+    twitterMessagesSignature = JSON.stringify(messages);
+    twitterMessagesDirty = false;
+  }
+  const signature = twitterMessagesSignature;
   if (signature === lastInjectedSignature) return;
 
   document.documentElement.dataset.unisignalTwitterMessages = signature;
@@ -544,14 +550,17 @@ function findActiveTargetList() {
 
 function renderActiveMode() {
   const targetList = findActiveTargetList();
-  if (!targetList) {
+  if (
+    !targetList &&
+    (displayMode !== "floating" || !document.querySelector(TARGET_ROOT_SELECTOR))
+  ) {
     displayControl?.remove();
     return;
   }
 
   if (displayMode === "floating") {
     ensureDisplayControl();
-    for (const group of targetList.querySelectorAll("unisignal-telegram-feed")) group.remove();
+    for (const group of targetList?.querySelectorAll("unisignal-telegram-feed") || []) group.remove();
     renderFloatingFeed();
   } else {
     displayControl?.remove();
@@ -573,9 +582,11 @@ function scheduleRender(delay = 100) {
 function handleWorkerMessage(message) {
   if (message.type === "snapshot") {
     messageHistory = message.messageHistory.slice(-MAX_MESSAGE_HISTORY);
+    twitterMessagesDirty = true;
     scheduleRender();
   } else if (message.type === "telegram-message") {
     upsertMessage(message.message);
+    twitterMessagesDirty = true;
     scheduleRender(0);
     if (
       soundEnabled &&
@@ -592,6 +603,7 @@ function handleWorkerMessage(message) {
     }
   } else if (message.type === "telegram-message-deleted") {
     deleteMessage(message.channelId, message.messageId);
+    twitterMessagesDirty = true;
     scheduleRender(0);
   }
 }
@@ -624,6 +636,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
   if (changes.secondaryChannelEnabled) {
     secondaryChannelEnabled = changes.secondaryChannelEnabled.newValue === true;
+    twitterMessagesDirty = true;
     scheduleRender(0);
   }
 });
