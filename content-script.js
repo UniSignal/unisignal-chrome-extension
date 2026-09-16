@@ -9,8 +9,7 @@ const DEFAULT_MESSAGE_FONT_SIZE = 15;
 const MIN_MESSAGE_FONT_SIZE = 12;
 const MAX_MESSAGE_FONT_SIZE = 20;
 const DEFAULT_NOTIFICATION_VOLUME = 50;
-const UNISIGNAL = 3912057240;
-const UNISIGNAL_FEED = 3808132947;
+const MAIN_CHANNEL_ID = 3912057240;
 const UNISIGNAL_SOUND_URL = chrome.runtime.getURL("notification-sound.mp3");
 const UNISIGNAL_ICON_URL = chrome.runtime.getURL("icons/icon32.png");
 const UNISIGNAL_AVATAR_URL = chrome.runtime.getURL("icons/avatar.jpg");
@@ -122,7 +121,8 @@ let floatingMessages;
 let soundEnabled = true;
 let notificationVolume = DEFAULT_NOTIFICATION_VOLUME;
 let messageFontSize = DEFAULT_MESSAGE_FONT_SIZE;
-let secondaryChannelEnabled = false;
+let optionalChannelNames = new Map();
+let enabledChannelIds = new Set();
 const notificationAudio = new Audio(UNISIGNAL_SOUND_URL);
 
 function normalizeMessageFontSize(value) {
@@ -148,10 +148,27 @@ function applyMessageFontSize() {
 }
 
 function shouldDisplayMessage(message) {
-  if (!Number.isInteger(message.channel_id) || message.channel_id === UNISIGNAL) {
+  if (!Number.isInteger(message.channel_id) || message.channel_id === MAIN_CHANNEL_ID) {
     return true;
   }
-  return message.channel_id === UNISIGNAL_FEED && secondaryChannelEnabled;
+  return optionalChannelNames.has(message.channel_id) && enabledChannelIds.has(message.channel_id);
+}
+
+function getMessageTitle(message) {
+  if (!Number.isInteger(message.channel_id) || message.channel_id === MAIN_CHANNEL_ID) {
+    return "聚合监控";
+  }
+  return optionalChannelNames.get(message.channel_id) || "频道消息";
+}
+
+function setOptionalChannels(channels) {
+  optionalChannelNames = new Map(
+    (Array.isArray(channels) ? channels : [])
+      .filter((channel) => Number.isInteger(channel?.id) && typeof channel?.name === "string")
+      .map((channel) => [channel.id, channel.name]),
+  );
+  twitterMessagesDirty = true;
+  scheduleRender(0);
 }
 
 function upsertMessage(message) {
@@ -186,7 +203,7 @@ function isAllowedLink(href) {
 }
 
 function getNotificationSound(message) {
-  if (!Number.isInteger(message.channel_id) || message.channel_id === UNISIGNAL) {
+  if (!Number.isInteger(message.channel_id) || message.channel_id === MAIN_CHANNEL_ID) {
     return {
       url: UNISIGNAL_SOUND_URL,
       volume: notificationVolume / 100,
@@ -345,7 +362,7 @@ function createMessageGroup(messages) {
     const footer = document.createElement("div");
     const time = document.createElement("time");
     title.className = "title";
-    title.textContent = data.channel_id === UNISIGNAL_FEED ? "Unisignal Feed" : "聚合监控";
+    title.textContent = getMessageTitle(data);
     text.className = "text";
     appendSanitizedHtml(text, data.html);
     const contracts = markContractTargets(text);
@@ -382,7 +399,7 @@ function createTwitterMessage(message) {
   const contracts = markContractTargets(text);
   const hasTelegramUrl =
     Number.isInteger(message.channel_id) && Number.isInteger(message.message_id);
-  const title = message.channel_id === UNISIGNAL_FEED ? "Unisignal Feed" : "聚合监控";
+  const title = getMessageTitle(message);
 
   return {
     key: getMessageKey(message),
@@ -613,8 +630,11 @@ function scheduleRender(delay = 100) {
 function handleWorkerMessage(message) {
   if (message.type === "snapshot") {
     messageHistory = message.messageHistory.slice(-MAX_MESSAGE_HISTORY);
+    setOptionalChannels(message.optionalChannels);
     twitterMessagesDirty = true;
     scheduleRender();
+  } else if (message.type === "optional-channels") {
+    setOptionalChannels(message.optionalChannels);
   } else if (message.type === "telegram-message") {
     upsertMessage(message.message);
     twitterMessagesDirty = true;
@@ -665,8 +685,12 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     messageFontSize = normalizeMessageFontSize(changes.messageFontSize.newValue);
     applyMessageFontSize();
   }
-  if (changes.secondaryChannelEnabled) {
-    secondaryChannelEnabled = changes.secondaryChannelEnabled.newValue === true;
+  if (changes.enabledChannelIds) {
+    enabledChannelIds = new Set(
+      Array.isArray(changes.enabledChannelIds.newValue)
+        ? changes.enabledChannelIds.newValue.filter(Number.isInteger)
+        : [],
+    );
     twitterMessagesDirty = true;
     scheduleRender(0);
   }
@@ -682,13 +706,17 @@ chrome.storage.local
     soundEnabled: true,
     notificationVolume: DEFAULT_NOTIFICATION_VOLUME,
     messageFontSize: DEFAULT_MESSAGE_FONT_SIZE,
-    secondaryChannelEnabled: false,
+    enabledChannelIds: [],
   })
   .then((settings) => {
     soundEnabled = settings.soundEnabled !== false;
     notificationVolume = normalizeNotificationVolume(settings.notificationVolume);
     messageFontSize = normalizeMessageFontSize(settings.messageFontSize);
-    secondaryChannelEnabled = settings.secondaryChannelEnabled === true;
+    enabledChannelIds = new Set(
+      Array.isArray(settings.enabledChannelIds)
+        ? settings.enabledChannelIds.filter(Number.isInteger)
+        : [],
+    );
     connectToWorker();
     scheduleRender();
   });

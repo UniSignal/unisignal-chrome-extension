@@ -6,13 +6,15 @@ const accessTokenInput = document.querySelector("#accessToken");
 const reconnectButton = document.querySelector("#reconnect");
 const saveSettingsButton = document.querySelector("#saveSettings");
 const settingsDetail = document.querySelector("#settingsDetail");
-const secondaryChannelEnabledInput = document.querySelector("#secondaryChannelEnabled");
+const optionalChannelsElement = document.querySelector("#optionalChannels");
 const soundEnabledInput = document.querySelector("#soundEnabled");
 const notificationVolumeInput = document.querySelector("#notificationVolume");
 const notificationVolumeValue = document.querySelector("#notificationVolumeValue");
 const messageFontSizeInput = document.querySelector("#messageFontSize");
 const messageFontSizeValue = document.querySelector("#messageFontSizeValue");
 const notificationPreviewAudio = new Audio(chrome.runtime.getURL("notification-sound.mp3"));
+let optionalChannels = [];
+let enabledChannelIds = new Set();
 
 const STATE_LABELS = {
   connected: "已连接",
@@ -25,6 +27,43 @@ function renderConnectionState(state, detail = "") {
   statusElement.className = `status ${state}`;
   statusText.textContent = STATE_LABELS[state] || state;
   connectionDetail.textContent = detail;
+}
+
+function renderOptionalChannels() {
+  if (optionalChannels.length === 0) {
+    const detail = document.createElement("p");
+    detail.className = "detail";
+    detail.textContent = "当前没有可选频道";
+    optionalChannelsElement.replaceChildren(detail);
+    return;
+  }
+
+  const rows = optionalChannels.map((channel) => {
+    const label = document.createElement("label");
+    label.className = "preference";
+    const name = document.createElement("span");
+    const input = document.createElement("input");
+    name.textContent = channel.name;
+    input.type = "checkbox";
+    input.dataset.channelId = String(channel.id);
+    input.checked = enabledChannelIds.has(channel.id);
+    input.addEventListener("input", () => {
+      if (input.checked) {
+        enabledChannelIds.add(channel.id);
+      } else {
+        enabledChannelIds.delete(channel.id);
+      }
+      settingsDetail.textContent = "";
+    });
+    label.append(name, input);
+    return label;
+  });
+  optionalChannelsElement.replaceChildren(...rows);
+}
+
+function setOptionalChannels(channels) {
+  optionalChannels = Array.isArray(channels) ? channels : [];
+  renderOptionalChannels();
 }
 
 connectionForm.addEventListener("submit", async (event) => {
@@ -45,8 +84,12 @@ reconnectButton.addEventListener("click", () => {
 });
 
 saveSettingsButton.addEventListener("click", async () => {
+  enabledChannelIds = new Set(
+    [...optionalChannelsElement.querySelectorAll("input[data-channel-id]:checked")]
+      .map((input) => Number(input.dataset.channelId)),
+  );
   await chrome.storage.local.set({
-    secondaryChannelEnabled: secondaryChannelEnabledInput.checked,
+    enabledChannelIds: [...enabledChannelIds],
     soundEnabled: soundEnabledInput.checked,
     notificationVolume: Number(notificationVolumeInput.value),
     messageFontSize: Number(messageFontSizeInput.value),
@@ -69,7 +112,6 @@ notificationVolumeInput.addEventListener("change", () => {
 });
 
 for (const input of [
-  secondaryChannelEnabledInput,
   soundEnabledInput,
   notificationVolumeInput,
   messageFontSizeInput,
@@ -82,23 +124,31 @@ for (const input of [
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "connection-state") {
     renderConnectionState(message.state, message.detail);
+  } else if (message.type === "optional-channels") {
+    setOptionalChannels(message.optionalChannels);
   }
 });
 
 chrome.runtime.sendMessage({ type: "get-status" }).then((status) => {
   accessTokenInput.value = status.accessToken;
   renderConnectionState(status.state);
+  setOptionalChannels(status.optionalChannels);
 });
 
 chrome.storage.local
   .get({
-    secondaryChannelEnabled: false,
+    enabledChannelIds: [],
     soundEnabled: true,
     notificationVolume: 50,
     messageFontSize: 15,
   })
   .then((settings) => {
-    secondaryChannelEnabledInput.checked = settings.secondaryChannelEnabled;
+    enabledChannelIds = new Set(
+      Array.isArray(settings.enabledChannelIds)
+        ? settings.enabledChannelIds.filter(Number.isInteger)
+        : [],
+    );
+    renderOptionalChannels();
     soundEnabledInput.checked = settings.soundEnabled;
     notificationVolumeInput.value = settings.notificationVolume;
     notificationVolumeValue.value = `${notificationVolumeInput.value}%`;
