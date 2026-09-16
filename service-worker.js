@@ -10,8 +10,30 @@ let reconnectTimer = null;
 let reconnectDelay = 1_000;
 let currentAccessToken = "";
 let messageHistory = [];
+let optionalChannels = [];
 let connectionState = "disconnected";
 const contentPorts = new Set();
+
+function normalizeOptionalChannels(channels) {
+  if (!Array.isArray(channels)) return [];
+
+  const normalized = new Map();
+  for (const channel of channels) {
+    const name = typeof channel?.name === "string" ? channel.name.trim() : "";
+    if (!Number.isInteger(channel?.id) || !name) continue;
+    normalized.set(channel.id, { id: channel.id, name });
+  }
+  return [...normalized.values()];
+}
+
+function setOptionalChannels(channels) {
+  optionalChannels = normalizeOptionalChannels(channels);
+  const message = { type: "optional-channels", optionalChannels };
+  broadcastToContent(message);
+  chrome.runtime.sendMessage(message).catch(() => {
+    // 设置页尚未打开时没有消息接收者，这是正常情况。
+  });
+}
 
 function upsertMessage(message) {
   const hasIdentity =
@@ -121,6 +143,7 @@ function connect(accessToken, resetBackoff = true) {
 
     if (message?.type === "authenticated") {
       reconnectDelay = 1_000;
+      setOptionalChannels(message.optional_channels);
       setConnectionState("connected");
       heartbeatTimer = setInterval(() => {
         if (nextSocket.readyState === WebSocket.OPEN) {
@@ -194,6 +217,7 @@ chrome.runtime.onConnect.addListener((port) => {
   port.postMessage({
     type: "snapshot",
     messageHistory,
+    optionalChannels,
   });
   port.onDisconnect.addListener(() => {
     void chrome.runtime.lastError;
@@ -206,6 +230,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     sendResponse({
       state: connectionState,
       accessToken: currentAccessToken,
+      optionalChannels,
     });
     return;
   }
