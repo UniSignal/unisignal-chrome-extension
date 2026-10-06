@@ -86,13 +86,12 @@ git diff --check
 
 ## WSL 与 Windows Chrome 调试
 
-- Codex 运行在 WSL；用户当前加载扩展的 Windows 目录是
-  `C:\Users\Administrator\Documents\uni`，对应
-  `/mnt/c/Users/Administrator/Documents/uni`。
-- 只有用户授权覆盖或要求实机调试时才同步到该目录；只复制本次必要文件，并用
-  `sha256sum` 核对源文件和目标文件。
-- Chrome 调试端口从 Chrome Canary 用户目录中的 `DevToolsActivePort` 读取，不要假定
-  `/json/version` 可用；HTTP `/json/*` 返回 404 时，浏览器级 DevTools WebSocket 仍可能正常。
+- Chrome 版本、调试用户目录、CDP 连接和持续授权遵循
+  `/home/pikacyan/.codex/AGENTS.md` 的“Chrome 实机调试（持续授权）”。
+- 本项目调试副本固定为
+  `C:\Users\Administrator\Documents\Codex\chrome-debug-extensions\unisignal-chrome-extension`，
+  WSL 对应 `/mnt/c/Users/Administrator/Documents/Codex/chrome-debug-extensions/unisignal-chrome-extension`。
+  同步必要文件并核对哈希即可，无需再次询问覆盖调试副本的许可。
 - 修改 Manifest 或可访问资源后必须重载扩展；修改内容脚本后刷新 GMGN 页面。
 - 验证插入位置时使用真实 `worker -> content script -> GMGN 列表` 路径，不使用固定浮层预览。
 
