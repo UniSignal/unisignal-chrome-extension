@@ -1,10 +1,11 @@
-const WS_URL = "wss://wss.unisignal.xyz/ws";
+const WS_URLS = ["wss://wss.unisignal.xyz/ws", "wss://wss.unisignal.dev/ws"];
 const HEARTBEAT_INTERVAL_MS = 20_000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 const MAX_MESSAGE_HISTORY = 100;
 
 let socket = null;
 let socketGeneration = 0;
+let endpointIndex = 0;
 let heartbeatTimer = null;
 let historyTimer = null;
 let reconnectTimer = null;
@@ -121,7 +122,10 @@ function connect(accessToken, resetBackoff = true) {
   }
 
   currentAccessToken = accessToken.trim();
-  if (resetBackoff) reconnectDelay = 1_000;
+  if (resetBackoff) {
+    reconnectDelay = 1_000;
+    endpointIndex = 0;
+  }
 
   if (!currentAccessToken) {
     setConnectionState("disconnected", "请先填写 Access Token");
@@ -129,7 +133,7 @@ function connect(accessToken, resetBackoff = true) {
   }
 
   let pendingHistory = null;
-  const nextSocket = new WebSocket(WS_URL);
+  const nextSocket = new WebSocket(WS_URLS[endpointIndex]);
   socket = nextSocket;
   setConnectionState("connecting");
 
@@ -220,6 +224,7 @@ function connect(accessToken, resetBackoff = true) {
     pendingHistory = null;
     heartbeatTimer = null;
     socket = null;
+    endpointIndex = (endpointIndex + 1) % WS_URLS.length;
     scheduleReconnect(generation);
   };
 }
