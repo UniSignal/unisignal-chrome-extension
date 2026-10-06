@@ -138,6 +138,51 @@
     };
   }
 
+  function updateNativeMessages(messages) {
+    const updates = new Map(messages.map((message) => [
+      `${UNISIGNAL_ITEM_PREFIX}${message.key}`, message,
+    ]));
+    const updatedKeys = new Set();
+    const visited = new Set();
+    for (const wrapper of document.querySelectorAll(ITEM_SELECTOR)) {
+      const element = wrapper.querySelector(":scope > .gmgn-vlist-item");
+      const visibleItem = getItemData(wrapper);
+      if (!element || !visibleItem) continue;
+      const fiberKey = Object.keys(element).find((key) => key.startsWith("__reactFiber$"));
+      for (let fiber = element[fiberKey]; fiber; fiber = fiber.return) {
+        for (let hook = fiber.memoizedState; hook; hook = hook.next) {
+          const items = hook.memoizedState;
+          const dispatch = hook.queue?.dispatch;
+          if (
+            !dispatch || visited.has(dispatch) || !Array.isArray(items) ||
+            !items.some((item) => item?.id === visibleItem.id)
+          ) continue;
+          visited.add(dispatch);
+          const existing = items.filter((item) => updates.has(item?.id));
+          if (!existing.length) continue;
+          for (const item of existing) updatedKeys.add(updates.get(item.id).key);
+          // 原生新增合并会保留旧 CA，且拒绝含 CA 消息变为纯文本；编辑直接替换对应状态。
+          dispatch((current) => current.map((item) => {
+            const message = updates.get(item.id);
+            if (!message) return item;
+            return {
+              ...item,
+              tw_timestamp: String(Date.parse(message.date)),
+              user: { ...item.user, name: message.title, avatar: message.avatar, url: message.telegramUrl },
+              content: { text: message.text },
+              translation: undefined,
+              tw_token_type: message.token ? "token" : undefined,
+              token: message.token ? {
+                chain: message.token.chain, symbol: "CA", ca: message.token.address, icon: "",
+              } : undefined,
+            };
+          }));
+        }
+      }
+    }
+    return updatedKeys;
+  }
+
   function hasNativeSubscribers(manager, messages) {
     try {
       const needsBasic = messages.some((message) => !message.token);
@@ -173,18 +218,20 @@
     injectTimer = undefined;
     if (pendingMessages.size === 0) return;
 
+    const messages = [...pendingMessages.values()];
+    const updatedKeys = updateNativeMessages(messages);
+    const newMessages = messages.filter((message) => !updatedKeys.has(message.key));
     const manager = getQuotationSocketManager();
     const nativeUser = getNativeUserIdentity();
-    const messages = [...pendingMessages.values()];
-    if (!manager || !nativeUser || !hasNativeSubscribers(manager, messages)) {
+    if (newMessages.length && (!manager || !nativeUser || !hasNativeSubscribers(manager, newMessages))) {
       scheduleInjectRetry();
       return;
     }
 
-    const basicMessages = messages
+    const basicMessages = newMessages
       .filter((message) => !message.token)
       .map((message) => toTwitterMessage(message, nativeUser));
-    const tokenMessages = messages
+    const tokenMessages = newMessages
       .filter((message) => message.token)
       .map((message) => toTwitterMessage(message, nativeUser));
     try {
