@@ -6,6 +6,7 @@ const MAX_MESSAGE_HISTORY = 100;
 let socket = null;
 let socketGeneration = 0;
 let heartbeatTimer = null;
+let historyTimer = null;
 let reconnectTimer = null;
 let reconnectDelay = 1_000;
 let currentAccessToken = "";
@@ -35,7 +36,12 @@ function setOptionalChannels(channels) {
   });
 }
 
-function upsertMessage(message) {
+function isTelegramMessage(message) {
+  return ["telegram_message", "telegram_message_edited"].includes(message?.type) &&
+    typeof message.html === "string" && typeof message.date === "string";
+}
+
+function upsertMessage(message, persist = true) {
   const hasIdentity =
     Number.isInteger(message.channel_id) && Number.isInteger(message.message_id);
   const existingIndex = hasIdentity
@@ -50,14 +56,14 @@ function upsertMessage(message) {
     messageHistory[existingIndex] = message;
   }
   messageHistory = messageHistory.slice(-MAX_MESSAGE_HISTORY);
-  chrome.storage.local.set({ messageHistory });
+  if (persist) chrome.storage.local.set({ messageHistory });
 }
 
-function deleteMessage(channelId, messageId) {
+function deleteMessage(channelId, messageId, persist = true) {
   messageHistory = messageHistory.filter(
     (item) => item.channel_id !== channelId || item.message_id !== messageId,
   );
-  chrome.storage.local.set({ messageHistory });
+  if (persist) chrome.storage.local.set({ messageHistory });
 }
 
 function broadcastToContent(message) {
@@ -84,6 +90,7 @@ function setConnectionState(state, detail = "") {
 
 function clearConnectionTimers() {
   clearInterval(heartbeatTimer);
+  clearTimeout(historyTimer);
   clearTimeout(reconnectTimer);
   heartbeatTimer = null;
   reconnectTimer = null;
@@ -121,6 +128,7 @@ function connect(accessToken, resetBackoff = true) {
     return;
   }
 
+  let pendingHistory = null;
   const nextSocket = new WebSocket(WS_URL);
   socket = nextSocket;
   setConnectionState("connecting");
@@ -145,6 +153,11 @@ function connect(accessToken, resetBackoff = true) {
       reconnectDelay = 1_000;
       setOptionalChannels(message.optional_channels);
       setConnectionState("connected");
+      pendingHistory = [];
+      nextSocket.send(JSON.stringify({ type: "history" }));
+      // 旧服务端可能不支持历史请求，实时消息始终照常处理。
+      clearTimeout(historyTimer);
+      historyTimer = setTimeout(() => { pendingHistory = null; }, 10_000);
       heartbeatTimer = setInterval(() => {
         if (nextSocket.readyState === WebSocket.OPEN) {
           nextSocket.send(JSON.stringify({ type: "ping" }));
@@ -153,6 +166,26 @@ function connect(accessToken, resetBackoff = true) {
       return;
     }
     if (message?.type === "pong") return;
+    if (message?.type === "history") {
+      if (!pendingHistory || !Array.isArray(message.messages)) return;
+      clearTimeout(historyTimer);
+      messageHistory = [];
+      for (const item of message.messages.filter(isTelegramMessage)) {
+        upsertMessage(item, false);
+      }
+      // 快照查询期间的实时更新优先，包含编辑和删除。
+      for (const item of pendingHistory) {
+        if (item.type === "telegram_message_deleted") {
+          deleteMessage(item.channel_id, item.message_id, false);
+        } else {
+          upsertMessage(item, false);
+        }
+      }
+      pendingHistory = null;
+      chrome.storage.local.set({ messageHistory });
+      broadcastToContent({ type: "snapshot", messageHistory, optionalChannels });
+      return;
+    }
     if (message?.type === "telegram_message_deleted") {
       if (
         !Number.isInteger(message.channel_id) ||
@@ -161,6 +194,7 @@ function connect(accessToken, resetBackoff = true) {
         return;
       }
 
+      pendingHistory?.push(message);
       deleteMessage(message.channel_id, message.message_id);
       broadcastToContent({
         type: "telegram-message-deleted",
@@ -169,14 +203,11 @@ function connect(accessToken, resetBackoff = true) {
       });
       return;
     }
-    if (
-      !["telegram_message", "telegram_message_edited"].includes(message?.type) ||
-      typeof message.html !== "string" ||
-      typeof message.date !== "string"
-    ) {
+    if (!isTelegramMessage(message)) {
       return;
     }
 
+    pendingHistory?.push(message);
     upsertMessage(message);
     broadcastToContent({ type: "telegram-message", message });
   };
@@ -185,6 +216,8 @@ function connect(accessToken, resetBackoff = true) {
     if (generation !== socketGeneration) return;
 
     clearInterval(heartbeatTimer);
+    clearTimeout(historyTimer);
+    pendingHistory = null;
     heartbeatTimer = null;
     socket = null;
     scheduleReconnect(generation);
