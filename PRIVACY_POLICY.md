@@ -28,7 +28,7 @@ Effective date: October 6, 2026
 为运行服务，以下第三方可能在提供其服务所必需的范围内处理数据：
 
 - **Telegram**：承载机器人对话和指定频道，并提供 Telegram 用户 ID、频道成员状态及频道消息。用户点击“Telegram 原消息”按钮时，浏览器会访问 Telegram 对应的消息链接，Telegram 可能按照其政策处理该请求的 IP 和请求元数据。
-- **Cloudflare**：为 `wss.unisignal.xyz` 提供反向代理和安全服务，因此可能处理连接 IP、连接元数据及代理的 WSS 流量，包括用于鉴权的 Access Token 和频道消息。
+- **Cloudflare**：为 `wss.unisignal.xyz` 和 `wss.unisignal.dev` 提供反向代理和安全服务，因此可能处理连接 IP、连接元数据及代理的 WSS 流量，包括用于鉴权的 Access Token 和频道消息。
 - **GitHub**：通过 GitHub Pages 托管本隐私政策页面，并可能按照 GitHub 的政策处理访问者的 IP 和请求元数据。扩展不会向 GitHub 发送 Access Token、Telegram 数据或 GMGN 页面内容。
 
 除上述服务提供商、法律要求、保护服务安全或完成服务运营所必需的情况外，我们不会向其他第三方披露用户数据。
@@ -79,7 +79,7 @@ Data is used only to authenticate access, synchronize channel membership, delive
 The following third parties may process data only as necessary to provide their services:
 
 - **Telegram**: Hosts bot conversations and the designated channel and provides Telegram user IDs, channel membership status, and channel messages. When a user clicks the "Original Telegram Message" button, the browser visits the corresponding Telegram message link, and Telegram may process the request's IP address and request metadata under its policies.
-- **Cloudflare**: Provides reverse-proxy and security services for `wss.unisignal.xyz` and may therefore process connection IP addresses, connection metadata, and proxied WSS traffic, including the Access Token used for authentication and channel messages.
+- **Cloudflare**: Provides reverse-proxy and security services for `wss.unisignal.xyz` and `wss.unisignal.dev` and may therefore process connection IP addresses, connection metadata, and proxied WSS traffic, including the Access Token used for authentication and channel messages.
 - **GitHub**: Hosts this privacy policy through GitHub Pages and may process visitors' IP addresses and request metadata under GitHub's policies. The Extension does not send Access Tokens, Telegram data, or GMGN page content to GitHub.
 
 We do not otherwise disclose user data except to the providers listed above, when required by law, when necessary to protect service security, or when necessary to operate the service.

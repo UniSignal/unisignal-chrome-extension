@@ -20,7 +20,7 @@ async function worker() {
     static OPEN = 1;
     readyState = 1;
     sent = [];
-    constructor() { sockets.push(this); }
+    constructor(url) { this.url = url; sockets.push(this); }
     send(data) { this.sent.push(JSON.parse(data)); }
     close() {}
   }
@@ -51,6 +51,37 @@ async function worker() {
   const receive = (data, socket = sockets.at(-1)) => socket.onmessage({ data: JSON.stringify(data) });
   return { sockets, events, timers, receive, context, stored: () => stored };
 }
+
+test("disconnects alternate endpoints; manual reconnect resets to primary and ignores stale closes", async () => {
+  const w = await worker();
+  assert.equal(w.sockets[0].url, "wss://wss.unisignal.xyz/ws");
+  const staleClose = w.sockets[0].onclose;
+  w.sockets[0].onclose();
+  for (const [id, timeout] of [...w.timers]) {
+    w.timers.delete(id);
+    timeout();
+  }
+  assert.equal(w.sockets[1].url, "wss://wss.unisignal.dev/ws");
+  w.sockets[1].onopen();
+  assert.deepEqual(w.sockets[1].sent, [{ type: "auth", token: "test" }]);
+  w.receive({ type: "authenticated" });
+  w.receive({ type: "history", messages: [message(1)] });
+  assert.deepEqual(w.stored(), [message(1)]);
+  staleClose();
+  assert.equal(w.timers.size, 0);
+  w.sockets[1].onclose();
+  for (const [id, timeout] of [...w.timers]) {
+    w.timers.delete(id);
+    timeout();
+  }
+  assert.equal(w.sockets[2].url, "wss://wss.unisignal.xyz/ws");
+  w.sockets[2].onclose();
+  vm.runInContext('connect("replacement")', w.context);
+  assert.equal(w.timers.size, 0);
+  assert.equal(w.sockets[3].url, "wss://wss.unisignal.xyz/ws");
+  w.sockets[3].onopen();
+  assert.deepEqual(w.sockets[3].sent, [{ type: "auth", token: "replacement" }]);
+});
 
 test("authentication pulls history; snapshot preserves live edits/deletes without replaying alerts", async () => {
   const w = await worker();
