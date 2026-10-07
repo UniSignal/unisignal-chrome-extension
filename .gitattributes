@@ -1,0 +1,11 @@
+# 源码归档仅保留插件运行文件，与 Release 工作流的打包范围一致。
+/* export-ignore
+/manifest.json -export-ignore
+/content-script.js -export-ignore
+/service-worker.js -export-ignore
+/gmgn-bridge.js -export-ignore
+/dashboard.html -export-ignore
+/dashboard.js -export-ignore
+/dashboard.css -export-ignore
+/icons -export-ignore
+/notification-sound.mp3 -export-ignore
