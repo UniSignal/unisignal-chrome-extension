@@ -1,8 +1,8 @@
 # UniSignal Telegram Feed 隐私政策 / Privacy Policy
 
-生效日期：2026 年 10 月 6 日
+生效日期：2026 年 10 月 8 日
 
-Effective date: October 6, 2026
+Effective date: October 8, 2026
 
 ## 中文
 
@@ -16,7 +16,7 @@ Effective date: October 6, 2026
 - **Telegram 用户 ID 和频道成员状态**：服务器在启动时及之后每 6 小时读取指定频道的成员列表，并为其中的非机器人、未删除账号生成或保留 Access Token。这包括尚未在机器人中请求 Token 或尚未使用本扩展的频道成员。
 - **频道消息**：指定频道的新消息、编辑后的消息和删除通知会连同频道 ID、消息 ID 实时发送给已授权客户端。扩展使用这两个 ID 更新或删除同一条消息，并生成 Telegram 原消息链接。服务器将消息正文、时间、频道 ID 和消息 ID 保存在 PostgreSQL 中，供连接或重连后拉取最近 100 条消息；扩展在 Chrome 本地存储中保留最近 100 条消息及其上述元数据。
 - **GMGN 网站内容和设置**：扩展在用户设备本地读取 GMGN 推特监控列表中的消息时间以混排消息，并读取列表条目的推特用户 ID（缺失时使用用户名）及平台标识，用于在 GMGN 原生列表中展示频道消息。这些标识仅保存在页面内存中，页面刷新或关闭后清除，不写入扩展本地存储。扩展还读取 GMGN 推特监控提示音的类型、开关状态和音量，用于其他频道的本地提示音；上述数据不会上传至服务器。
-- **扩展显示与声音偏好**：用户选择启用的可选频道 ID 列表、通知声音开关、通知音量和消息字体大小保存在 Chrome 本地存储中，仅用于控制扩展在本机的显示和声音；这些数据不会上传至服务器。可选频道的名称和 ID 由服务器在 WSS 连接中提供，仅保存在扩展运行内存中。
+- **扩展显示与声音偏好**：用户选择启用的可选频道 ID 列表、通知声音开关、通知音量、消息字体大小和混排／浮窗显示模式保存在 Chrome 本地存储中，仅用于控制扩展在本机的显示和声音；这些数据不会上传至服务器。可选频道的名称和 ID 由服务器在 WSS 连接中提供，仅保存在扩展运行内存中。
 - **运行日志**：服务器日志可能包含连接 IP、连接时间、错误信息和 Telegram 消息 ID，用于服务维护、安全和故障排查。
 
 本扩展不会读取或收集钱包私钥、助记词、交易签名、付款卡信息或 GMGN 账户密码。
@@ -42,7 +42,7 @@ Effective date: October 6, 2026
 - 服务器保存频道消息的最新正文及元数据，编辑覆盖原记录，收到删除通知时移除对应记录。目前不设置自动过期时间；客户端查询最多返回最近 100 条。连接后拉取的快照会替换浏览器本地最近消息。
 - 服务启动时及之后每 6 小时同步频道成员。用户退出频道后，其服务器端 Telegram 用户 ID 和 Access Token 会在下一次成功同步时被删除，现有 WebSocket 连接会被断开；通常不超过 6 小时，但同步失败时可能更久。
 - 最近 100 条频道消息及其频道 ID、消息 ID 保存在 Chrome 本地存储中。较旧消息会被自动替换；服务器收到 Telegram 删除通知时，对应消息也会被删除；其余消息保留至用户清除扩展数据或卸载扩展。
-- Unisignal Feed 显示开关、通知声音开关、通知音量和消息字体大小保存在 Chrome 本地存储中，直至用户再次调整、清除扩展数据或卸载扩展。
+- 用户启用的可选频道 ID 列表、通知声音开关、通知音量、消息字体大小和混排／浮窗显示模式保存在 Chrome 本地存储中，直至用户再次调整、清除扩展数据或卸载扩展。
 - 运行日志仅在服务运营、安全和故障排查所需期间保留。
 
 ### 安全与用户选择
@@ -67,7 +67,7 @@ This policy applies to the UniSignal Telegram Feed Chrome extension and its supp
 - **Telegram user ID and channel membership status**: At startup and every six hours thereafter, the server reads the designated channel's member list and generates or retains an Access Token for each non-bot, non-deleted account. This includes channel members who have not requested a Token from the bot or used the Extension.
 - **Channel messages**: New messages, edited messages, and deletion notices from the designated channel are delivered in real time to authorized clients together with their channel IDs and message IDs. The Extension uses these IDs to update or delete the same message and generate links to the original Telegram messages. The server stores message content, timestamps, channel IDs, and message IDs in PostgreSQL so clients can retrieve the 100 most recent messages after connecting or reconnecting; the Extension keeps only the 100 most recent messages and this metadata in Chrome local storage.
 - **GMGN website content and settings**: The Extension locally reads message timestamps from the GMGN X monitoring feed for chronological placement, along with feed items' Twitter user IDs (or usernames when IDs are unavailable) and platform identifiers to display channel messages in GMGN's native feed. These identifiers are kept only in page memory, are cleared when the page is refreshed or closed, and are not written to Extension local storage. The Extension also reads the type, enabled state, and volume of GMGN's X-monitor sound for local notifications from other channels. None of this data is uploaded to the server.
-- **Extension display and sound preferences**: The list of optional channel IDs enabled by the user, notification-sound toggle, notification volume, and message font size are stored in Chrome local storage solely to control the Extension's local display and sound. This data is not uploaded to the server. Optional channel names and IDs are provided by the server over the WSS connection and are kept only in the Extension's runtime memory.
+- **Extension display and sound preferences**: The list of optional channel IDs enabled by the user, notification-sound toggle, notification volume, message font size, and mixed/floating display mode are stored in Chrome local storage solely to control the Extension's local display and sound. This data is not uploaded to the server. Optional channel names and IDs are provided by the server over the WSS connection and are kept only in the Extension's runtime memory.
 - **Operational logs**: Server logs may contain connection IP addresses, connection times, error details, and Telegram message IDs for maintenance, security, and troubleshooting.
 
 The Extension does not read or collect wallet private keys, seed phrases, transaction signatures, payment card information, or GMGN account passwords.
@@ -93,7 +93,7 @@ Our use of user data complies with the Chrome Web Store User Data Policy, includ
 - The server retains the latest message content and metadata, overwrites records on edits, and removes matching records on deletion notices. There is currently no automatic expiration; client queries return at most the 100 most recent messages. A snapshot retrieved after connecting replaces the browser’s locally stored recent messages.
 - Membership is synchronized at service startup and every six hours. After a user leaves the channel, the server-side Telegram user ID and Access Token are deleted and existing WebSocket connections are closed at the next successful synchronization. This normally occurs within six hours but may take longer if synchronization fails.
 - The 100 most recent channel messages and their channel IDs and message IDs are stored in Chrome local storage. Older messages are automatically replaced, and a corresponding message is also removed when the server receives a Telegram deletion notice. Other stored messages remain until the user clears Extension data or uninstalls the Extension.
-- The Unisignal Feed display toggle, notification-sound toggle, notification volume, and message font size remain in Chrome local storage until adjusted again, Extension data is cleared, or the Extension is uninstalled.
+- The list of optional channel IDs enabled by the user, notification-sound toggle, notification volume, message font size, and mixed/floating display mode remain in Chrome local storage until adjusted again, Extension data is cleared, or the Extension is uninstalled.
 - Operational logs are retained only as long as reasonably necessary for service operation, security, and troubleshooting.
 
 ### Security and User Choices

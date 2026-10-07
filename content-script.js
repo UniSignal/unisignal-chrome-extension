@@ -438,6 +438,7 @@ function syncMixedMessages() {
 function setDisplayMode(mode) {
   if (mode === displayMode) return;
   displayMode = mode;
+  chrome.storage.local.set({ displayMode }).catch((error) => console.warn("保存显示模式失败", error));
   lastInjectedSignature = "";
   lastFloatingSignature = "";
   scheduleRender(0);
@@ -681,12 +682,14 @@ chrome.runtime.onMessage.addListener((message) => {
 
 chrome.storage.local
   .get({
+    displayMode: "mixed",
     soundEnabled: true,
     notificationVolume: DEFAULT_NOTIFICATION_VOLUME,
     messageFontSize: DEFAULT_MESSAGE_FONT_SIZE,
     enabledChannelIds: [],
   })
   .then((settings) => {
+    displayMode = settings.displayMode === "floating" ? "floating" : "mixed";
     soundEnabled = settings.soundEnabled !== false;
     notificationVolume = normalizeNotificationVolume(settings.notificationVolume);
     messageFontSize = normalizeMessageFontSize(settings.messageFontSize);
