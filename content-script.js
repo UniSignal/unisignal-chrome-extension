@@ -285,6 +285,12 @@ function markContractTargets(container) {
     link.dataset.gmgnChain = chain.toLowerCase();
   }
 
+  for (const match of container.textContent.matchAll(/https?:\/\/gmgn\.ai\/[^\s<>"'`]+/gi)) {
+    const href = match[0].replace(/[.,;:!?，。；：！？、）)\]】}]+$/u, "");
+    const token = new URL(href).pathname.match(GMGN_TOKEN_PATH_PATTERN);
+    if (token) gmgnContracts.set(token[2].toLowerCase(), token[1].toLowerCase());
+  }
+
   for (const element of container.querySelectorAll("code")) {
     const address = element.textContent.match(CONTRACT_ADDRESS_PATTERN)?.[0];
     if (!address) continue;
