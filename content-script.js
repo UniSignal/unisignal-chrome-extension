@@ -273,22 +273,21 @@ function appendSanitizedHtml(container, html) {
 
 function markContractTargets(container) {
   const gmgnContracts = new Map();
+  const targets = [...container.querySelectorAll("a")].map((link) => ({ href: link.href, link }));
+  for (const match of container.textContent.matchAll(/https?:\/\/gmgn\.ai\/[^\s<>"'`]+/gi)) {
+    targets.push({ href: match[0].replace(/[.,;:!?，。；：！？、）)\]】}]+$/u, "") });
+  }
 
-  for (const link of container.querySelectorAll("a")) {
-    const url = new URL(link.href);
+  for (const { href, link } of targets) {
+    const url = new URL(href);
     const match = url.hostname === "gmgn.ai" && url.pathname.match(GMGN_TOKEN_PATH_PATTERN);
     if (!match) continue;
 
     const [, chain, address] = match;
     gmgnContracts.set(address.toLowerCase(), chain.toLowerCase());
+    if (!link) continue;
     link.dataset.gmgnContract = address.toLowerCase();
     link.dataset.gmgnChain = chain.toLowerCase();
-  }
-
-  for (const match of container.textContent.matchAll(/https?:\/\/gmgn\.ai\/[^\s<>"'`]+/gi)) {
-    const href = match[0].replace(/[.,;:!?，。；：！？、）)\]】}]+$/u, "");
-    const token = new URL(href).pathname.match(GMGN_TOKEN_PATH_PATTERN);
-    if (token) gmgnContracts.set(token[2].toLowerCase(), token[1].toLowerCase());
   }
 
   for (const element of container.querySelectorAll("code")) {
