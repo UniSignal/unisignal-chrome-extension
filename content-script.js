@@ -1,9 +1,8 @@
 const PAGE_PARAMS = new URLSearchParams(location.search);
 const TARGET_ROOT_SELECTOR =
   PAGE_PARAMS.get("popout") === "true" && PAGE_PARAMS.get("target") === "xTracker"
-    ? '[data-testid="virtuoso-scroller"]'
+    ? '[data-testid="x-tracker-root"]'
     : '[data-id="KEY_X_SNIPER_RND_V1"]';
-const TARGET_SELECTOR = `${TARGET_ROOT_SELECTOR} [data-testid="virtuoso-item-list"]`;
 const MAX_MESSAGE_HISTORY = 100;
 const DEFAULT_MESSAGE_FONT_SIZE = 15;
 const MIN_MESSAGE_FONT_SIZE = 12;
@@ -12,7 +11,6 @@ const DEFAULT_NOTIFICATION_VOLUME = 50;
 const MAIN_CHANNEL_ID = 3912057240;
 const UNISIGNAL_SOUND_URL = chrome.runtime.getURL("notification-sound.mp3");
 const UNISIGNAL_ICON_URL = chrome.runtime.getURL("icons/icon32.png");
-const UNISIGNAL_AVATAR_URL = chrome.runtime.getURL("icons/avatar.jpg");
 const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "strong", "u"]);
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
 const CONTRACT_ADDRESS_PATTERN = /(?<![0-9a-f])0x[0-9a-f]{40}(?![0-9a-f])/i;
@@ -111,10 +109,10 @@ let renderTimer;
 let reconnectTimer;
 let workerPort;
 let lastInjectedSignature = "";
-let twitterMessagesDirty = true;
-let twitterMessagesSignature = "";
+let mixedMessagesDirty = true;
+let mixedMessagesSignature = "";
+const mixedRowSignatures = new WeakMap();
 let lastFloatingSignature = "";
-let activeTargetList;
 let displayMode = "mixed";
 let displayControl;
 let floatingMessages;
@@ -167,7 +165,7 @@ function setOptionalChannels(channels) {
       .filter((channel) => Number.isInteger(channel?.id) && typeof channel?.name === "string")
       .map((channel) => [channel.id, channel.name]),
   );
-  twitterMessagesDirty = true;
+  mixedMessagesDirty = true;
   scheduleRender(0);
 }
 
@@ -283,6 +281,8 @@ function markContractTargets(container) {
 
     const [, chain, address] = match;
     gmgnContracts.set(address.toLowerCase(), chain.toLowerCase());
+    link.dataset.gmgnContract = address.toLowerCase();
+    link.dataset.gmgnChain = chain.toLowerCase();
   }
 
   for (const element of container.querySelectorAll("code")) {
@@ -336,12 +336,13 @@ function createMessageActions(data, contracts) {
   return actions;
 }
 
-function createMessageGroup(messages) {
-  const host = document.createElement("unisignal-telegram-feed");
+function createMessageGroup(messages, host = document.createElement("unisignal-telegram-feed")) {
   host.style.setProperty("--message-font-size", `${messageFontSize}px`);
-  const shadow = host.attachShadow({ mode: "open" });
+  const hasShadow = Boolean(host.shadowRoot);
+  const shadow = host.shadowRoot || host.attachShadow({ mode: "open" });
   shadow.adoptedStyleSheets = [MESSAGE_STYLE_SHEET];
-  shadow.addEventListener("click", (event) => {
+  shadow.replaceChildren();
+  if (!hasShadow) shadow.addEventListener("click", (event) => {
     const target = event
       .composedPath()
       .find((node) => node instanceof HTMLElement && node.dataset.gmgnContract);
@@ -393,43 +394,39 @@ function getMessageKey(message) {
   return `legacy:${hash >>> 0}`;
 }
 
-function createTwitterMessage(message) {
-  const text = document.createElement("div");
-  appendSanitizedHtml(text, message.html);
-  const contracts = markContractTargets(text);
-  const hasTelegramUrl =
-    Number.isInteger(message.channel_id) && Number.isInteger(message.message_id);
-  const title = getMessageTitle(message);
+function renderMixedRow(host) {
+  const key = host.dataset.unisignalKey;
+  const message = messageHistory.find((item) => getMessageKey(item) === key);
+  if (!message || !shouldDisplayMessage(message)) return;
+  const signature = JSON.stringify([message, getMessageTitle(message)]);
+  if (mixedRowSignatures.get(host) === signature) return;
 
-  return {
-    key: getMessageKey(message),
-    title: message.type === "telegram_message_edited" ? `${title}（已编辑）` : title,
-    avatar: UNISIGNAL_AVATAR_URL,
-    text: text.textContent.trim() || " ",
-    date: message.date,
-    telegramUrl: hasTelegramUrl
-      ? `https://t.me/c/${message.channel_id}/${message.message_id}`
-      : "",
-    token: contracts[0],
-  };
+  createMessageGroup([message], host);
+  mixedRowSignatures.set(host, signature);
 }
 
-function injectMessagesIntoTwitterFeed() {
-  if (displayMode !== "mixed") return;
-
-  if (twitterMessagesDirty) {
-    const messages = messageHistory
-      .filter(shouldDisplayMessage)
-      .sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
-      .map(createTwitterMessage);
-    twitterMessagesSignature = JSON.stringify(messages);
-    twitterMessagesDirty = false;
+document.addEventListener("unisignal:render-row", (event) => {
+  if (event.target instanceof HTMLElement && event.target.matches("unisignal-telegram-feed")) {
+    renderMixedRow(event.target);
   }
-  const signature = twitterMessagesSignature;
+});
+
+function syncMixedMessages() {
+  if (mixedMessagesDirty) {
+    mixedMessagesSignature = JSON.stringify(messageHistory
+      .filter(shouldDisplayMessage)
+      .map((message) => ({ key: getMessageKey(message), timestamp: Date.parse(message.date) }))
+      .filter((message) => Number.isFinite(message.timestamp)));
+    for (const host of document.querySelectorAll("unisignal-telegram-feed[data-unisignal-key]")) {
+      renderMixedRow(host);
+    }
+    mixedMessagesDirty = false;
+  }
+  const signature = displayMode === "mixed" ? mixedMessagesSignature : "[]";
   if (signature === lastInjectedSignature) return;
 
-  document.documentElement.dataset.unisignalTwitterMessages = signature;
-  document.dispatchEvent(new Event("unisignal:inject-twitter"));
+  document.documentElement.dataset.unisignalMessages = signature;
+  document.dispatchEvent(new Event("unisignal:sync-messages"));
   lastInjectedSignature = signature;
 }
 
@@ -577,43 +574,19 @@ function renderFloatingFeed() {
   lastFloatingSignature = signature;
 }
 
-function findActiveTargetList() {
-  const lists = [...document.querySelectorAll(TARGET_SELECTOR)];
-  const activeList = lists.find((list) => {
-    const rect = list.getBoundingClientRect();
-    return rect.width > 0 && rect.height > 0;
-  });
-
-  for (const list of lists) {
-    if (list === activeList) continue;
-    for (const group of list.querySelectorAll("unisignal-telegram-feed")) group.remove();
-  }
-
-  if (activeList !== activeTargetList) {
-    activeTargetList = activeList;
-    lastInjectedSignature = "";
-  }
-  return activeList;
-}
-
 function renderActiveMode() {
-  const targetList = findActiveTargetList();
-  if (
-    !targetList &&
-    (displayMode !== "floating" || !document.querySelector(TARGET_ROOT_SELECTOR))
-  ) {
+  syncMixedMessages();
+  if (!document.querySelector(TARGET_ROOT_SELECTOR)) {
     displayControl?.remove();
     return;
   }
 
   if (displayMode === "floating") {
     ensureDisplayControl();
-    for (const group of targetList?.querySelectorAll("unisignal-telegram-feed") || []) group.remove();
     renderFloatingFeed();
   } else {
     displayControl?.remove();
     floatingMessages?.replaceChildren();
-    injectMessagesIntoTwitterFeed();
   }
   requestAnimationFrame(clampDisplayControlToViewport);
 }
@@ -631,13 +604,13 @@ function handleWorkerMessage(message) {
   if (message.type === "snapshot") {
     messageHistory = message.messageHistory.slice(-MAX_MESSAGE_HISTORY);
     setOptionalChannels(message.optionalChannels);
-    twitterMessagesDirty = true;
+    mixedMessagesDirty = true;
     scheduleRender();
   } else if (message.type === "optional-channels") {
     setOptionalChannels(message.optionalChannels);
   } else if (message.type === "telegram-message") {
     upsertMessage(message.message);
-    twitterMessagesDirty = true;
+    mixedMessagesDirty = true;
     scheduleRender(0);
     if (
       soundEnabled &&
@@ -654,7 +627,7 @@ function handleWorkerMessage(message) {
     }
   } else if (message.type === "telegram-message-deleted") {
     deleteMessage(message.channelId, message.messageId);
-    twitterMessagesDirty = true;
+    mixedMessagesDirty = true;
     scheduleRender(0);
   }
 }
@@ -691,7 +664,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
         ? changes.enabledChannelIds.newValue.filter(Number.isInteger)
         : [],
     );
-    twitterMessagesDirty = true;
+    mixedMessagesDirty = true;
     scheduleRender(0);
   }
 });
@@ -737,8 +710,6 @@ function mutationAffectsFeed(mutation) {
 new MutationObserver((mutations) => {
   if (mutations.some(mutationAffectsFeed)) scheduleRender();
 }).observe(document.documentElement, {
-  attributes: true,
-  attributeFilter: ["data-unisignal-timestamp"],
   childList: true,
   subtree: true,
 });

@@ -2,35 +2,13 @@
   const pageParams = new URLSearchParams(location.search);
   const MONITOR_SELECTOR =
     pageParams.get("popout") === "true" && pageParams.get("target") === "xTracker"
-      ? '[data-testid="virtuoso-scroller"]'
+      ? '[data-testid="x-tracker-root"]'
       : '[data-id="KEY_X_SNIPER_RND_V1"]';
-  const ITEM_SELECTOR = `${MONITOR_SELECTOR} [data-testid="virtuoso-item-list"] > [data-index]`;
   const GMGN_TOKEN_PATH = /^\/[a-z0-9_-]+\/token\/0x[0-9a-f]{40}$/i;
-  const UNISIGNAL_ITEM_PREFIX = "unisignal:";
-  const USER_TAGS = [
-    "featured",
-    "kol",
-    "trader",
-    "master",
-    "politics",
-    "media",
-    "companies",
-    "founder",
-    "exchange",
-    "celebrity",
-    "binance_square",
-    "instagram",
-    "exchange_listing",
-    "other",
-  ];
-  const pendingMessages = new Map();
-  const receivedMessageSignatures = new Map();
-  let scanTimer;
-  let injectTimer;
-  let injectRetryCount = 0;
-  let webpackRequire;
-  let quotationSocketManager;
-  let nativeUserIdentity;
+  const listeners = new Set();
+  const wrappedFactories = new WeakSet();
+  let messages = [];
+  let signature = "[]";
 
   document.addEventListener("unisignal:navigate", () => {
     const path = document.documentElement.dataset.unisignalNavigate;
@@ -40,282 +18,165 @@
     window.next.router.push(path);
   });
 
-  function getItemData(wrapper) {
-    const item = wrapper.querySelector(":scope > .gmgn-vlist-item");
-    const reactPropsKey = item && Object.keys(item).find((key) => key.startsWith("__reactProps$"));
-    return item?.[reactPropsKey]?.children?.props?.children?.props?.item;
-  }
+  document.addEventListener("unisignal:sync-messages", () => {
+    const serialized = document.documentElement.dataset.unisignalMessages;
+    delete document.documentElement.dataset.unisignalMessages;
+    if (!serialized || serialized === signature) return;
 
-  function scan() {
-    for (const wrapper of document.querySelectorAll(ITEM_SELECTOR)) {
-      const item = getItemData(wrapper);
-      const timestamp = item?.tw_timestamp;
-      if (timestamp) wrapper.dataset.unisignalTimestamp = timestamp;
-      else delete wrapper.dataset.unisignalTimestamp;
+    try {
+      const next = JSON.parse(serialized);
+      if (!Array.isArray(next) || !next.every((item) =>
+        typeof item?.key === "string" && Number.isFinite(item.timestamp)
+      )) return;
+      messages = next;
+      signature = serialized;
+      for (const listener of listeners) listener();
+    } catch {
+      return;
     }
+  });
+
+  function subscribe(listener) {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
   }
 
-  function getWebpackRequire() {
-    if (webpackRequire) return webpackRequire;
-    if (!Array.isArray(window.webpackChunk_N_E)) return;
-
-    window.webpackChunk_N_E.push([
-      [`unisignal-${Date.now()}`],
-      {},
-      (require) => {
-        webpackRequire = require;
-      },
-    ]);
-    return webpackRequire;
-  }
-
-  function getQuotationSocketManager() {
-    if (quotationSocketManager) return quotationSocketManager;
-
-    const require = getWebpackRequire();
-    for (const [moduleId, factory] of Object.entries(require?.m || {})) {
-      if (!/getQuotationSocketMgr\s*:/.test(String(factory))) continue;
-      try {
-        const module = require(moduleId);
-        if (typeof module.getQuotationSocketMgr !== "function") continue;
-        quotationSocketManager = module.getQuotationSocketMgr();
-        return quotationSocketManager;
-      } catch {
-        continue;
-      }
+  function mergeMessages(nativeItems, telegramMessages) {
+    const items = nativeItems.map((item, index) => ({ item, index }));
+    for (const message of telegramMessages) {
+      items.push({ message });
     }
+    return items.sort((a, b) => {
+      const first = a.message?.timestamp ?? Number(a.item.tw_timestamp);
+      const second = b.message?.timestamp ?? Number(b.item.tw_timestamp);
+      return second - first;
+    });
   }
 
-  function getNativeUserIdentity() {
-    for (const wrapper of document.querySelectorAll(ITEM_SELECTOR)) {
-      const item = getItemData(wrapper);
-      if (
-        !item ||
-        (typeof item.id === "string" && item.id.startsWith(UNISIGNAL_ITEM_PREFIX))
-      ) {
-        continue;
+  function installListRenderer(exports, React) {
+    if (!React) return;
+    for (const component of Object.values(exports)) {
+      const forwardRef = component?.type;
+      if (typeof forwardRef?.render !== "function") continue;
+      const originalRender = forwardRef.render;
+      const OriginalList = React.forwardRef(originalRender);
+
+      function MixedList({ nativeProps, nativeRef }) {
+        const host = React.useRef(null);
+        const [inMonitor, setInMonitor] = React.useState(false);
+        const [readingKeys, setReadingKeys] = React.useState(null);
+        const snapshot = React.useSyncExternalStore(subscribe, () => messages, () => messages);
+        React.useLayoutEffect(() => {
+          setInMonitor(Boolean(host.current?.closest(MONITOR_SELECTOR)));
+        }, []);
+        React.useEffect(() => {
+          if (snapshot.length === 0) setReadingKeys(null);
+        }, [snapshot]);
+        const onScroll = React.useCallback((event) => {
+          const reading = event.currentTarget.scrollTop > 0;
+          // 与原生推文一致：阅读中暂停新增，回到顶部再显示；编辑和删除仍立即生效。
+          setReadingKeys((current) => reading
+            ? current || new Set(snapshot.map((message) => message.key))
+            : null);
+          nativeProps.onScroll?.(event);
+        }, [snapshot, nativeProps.onScroll]);
+        const activeMessages = React.useMemo(() => inMonitor
+          ? snapshot.filter((message) => !readingKeys || readingKeys.has(message.key))
+          : [], [snapshot, inMonitor, readingKeys]);
+        const rows = React.useMemo(
+          () => mergeMessages(nativeProps.data, activeMessages),
+          [nativeProps.data, activeMessages],
+        );
+        const mountCard = React.useCallback((element) => {
+          if (element) element.dispatchEvent(new Event("unisignal:render-row", { bubbles: true }));
+        }, []);
+        const renderItem = React.useCallback((row) => {
+          if (!row.message) return nativeProps.renderItem(row.item, row.index);
+          return React.createElement("unisignal-telegram-feed", {
+            "data-unisignal-key": row.message.key,
+            ref: mountCard,
+          });
+        }, [nativeProps.renderItem, mountCard]);
+        const itemKey = React.useCallback((row) => row.message
+          ? `unisignal:${row.message.key}`
+          : nativeProps.itemKey(row.item, row.index), [nativeProps.itemKey]);
+        return React.createElement("div", {
+          ref: host,
+          style: { height: "100%", minHeight: 0 },
+          "data-unisignal-mixed-active": activeMessages.length > 0 ? "" : undefined,
+        }, React.createElement(OriginalList, {
+          ...nativeProps,
+          ref: nativeRef,
+          onScroll: inMonitor ? onScroll : nativeProps.onScroll,
+          ...(activeMessages.length > 0 ? { data: rows, renderItem, itemKey } : {}),
+        }));
       }
-      if (!item.user?.twitter_user_id && !item.user?.screen_name) continue;
-      nativeUserIdentity = {
-        id: item.user.twitter_user_id || item.user.screen_name,
-        platform: item.platform || 0,
+
+      // 在首次挂载前包装组件，原组件仍独立持有自己的 hooks 和虚拟列表状态。
+      forwardRef.render = function (props, ref) {
+        const keySource = String(props.itemKey);
+        const isTwitterList = keySource.includes("tw_timestamp") && keySource.includes("tw_type");
+        return isTwitterList
+          ? React.createElement(MixedList, { nativeProps: props, nativeRef: ref })
+          : React.createElement(OriginalList, { ...props, ref });
       };
-      return nativeUserIdentity;
     }
-    return nativeUserIdentity;
   }
 
-  function toTwitterMessage(message, nativeUser) {
-    const timestamp = Date.parse(message.date);
-    return {
-      i: `${UNISIGNAL_ITEM_PREFIX}${message.key}`,
-      tw: "tweet",
-      ti: `${UNISIGNAL_ITEM_PREFIX}${message.key}`,
-      ts: String(Number.isNaN(timestamp) ? Date.now() : timestamp),
-      cp: 1,
-      u: {
-        s: "_unisignal",
-        n: message.title,
-        a: message.avatar,
-        f: 0,
-        uid: nativeUser.id,
-        url: message.telegramUrl,
-      },
-      c: { t: message.text },
-      ut: [...USER_TAGS],
-      pf: nativeUser.platform,
-      ...(message.token
-        ? {
-          tt: "token",
-          t: {
-            c: message.token.chain,
-            s: "CA",
-            a: message.token.address,
-            i: "",
+  function wrapChunk(chunk) {
+    for (const [id, factory] of Object.entries(chunk?.[1] || {})) {
+      if (typeof factory !== "function" || wrappedFactories.has(factory)) continue;
+      const source = String(factory);
+      if (!source.includes("gmgn-vlist-item") || !source.includes("renderItem")) continue;
+      const wrapped = function (module, exports, require) {
+        let React;
+        const trackedRequire = new Proxy(require, {
+          apply(target, thisArg, args) {
+            const value = Reflect.apply(target, thisArg, args);
+            if (value?.createElement && value?.useSyncExternalStore) React = value;
+            return value;
           },
-        }
-        : {}),
-    };
-  }
-
-  function updateNativeMessages(messages) {
-    const updates = new Map(messages.map((message) => [
-      `${UNISIGNAL_ITEM_PREFIX}${message.key}`, message,
-    ]));
-    const updatedKeys = new Set();
-    const visited = new Set();
-    for (const wrapper of document.querySelectorAll(ITEM_SELECTOR)) {
-      const element = wrapper.querySelector(":scope > .gmgn-vlist-item");
-      const visibleItem = getItemData(wrapper);
-      if (!element || !visibleItem) continue;
-      const fiberKey = Object.keys(element).find((key) => key.startsWith("__reactFiber$"));
-      for (let fiber = element[fiberKey]; fiber; fiber = fiber.return) {
-        for (let hook = fiber.memoizedState; hook; hook = hook.next) {
-          const items = hook.memoizedState;
-          const dispatch = hook.queue?.dispatch;
-          if (
-            !dispatch || visited.has(dispatch) || !Array.isArray(items) ||
-            !items.some((item) => item?.id === visibleItem.id)
-          ) continue;
-          visited.add(dispatch);
-          const existing = items.filter((item) => updates.has(item?.id));
-          if (!existing.length) continue;
-          for (const item of existing) updatedKeys.add(updates.get(item.id).key);
-          // 原生新增合并会保留旧 CA，且拒绝含 CA 消息变为纯文本；编辑直接替换对应状态。
-          dispatch((current) => current.map((item) => {
-            const message = updates.get(item.id);
-            if (!message) return item;
-            return {
-              ...item,
-              tw_timestamp: String(Date.parse(message.date)),
-              user: { ...item.user, name: message.title, avatar: message.avatar, url: message.telegramUrl },
-              content: { text: message.text },
-              translation: undefined,
-              tw_token_type: message.token ? "token" : undefined,
-              token: message.token ? {
-                chain: message.token.chain, symbol: "CA", ca: message.token.address, icon: "",
-              } : undefined,
-            };
-          }));
-        }
-      }
-    }
-    return updatedKeys;
-  }
-
-  function hasNativeSubscribers(manager, messages) {
-    try {
-      const needsBasic = messages.some((message) => !message.token);
-      const needsToken = messages.some((message) => message.token);
-      const hasBasic = [
-        manager.getXMonitorSocket().basicCache.getDataSubject(),
-        manager.getXMonitorUserBasicSocket().userBasicCache.getDataSubject(),
-      ].some((subject) => subject.observed);
-      const hasToken = [
-        manager.getXMonitorSocket().tokenCache.getDataSubject(),
-        manager.getXMonitorUserTokenSocket().userTokenCache.getDataSubject(),
-      ].some((subject) => subject.observed);
-      return (!needsBasic || hasBasic) && (!needsToken || hasToken);
-    } catch {
-      return false;
+        });
+        factory.call(this, module, exports, trackedRequire);
+        installListRenderer(module.exports, React);
+      };
+      wrappedFactories.add(wrapped);
+      chunk[1][id] = wrapped;
     }
   }
 
-  function scheduleInjectRetry(reset = false) {
-    if (reset) injectRetryCount = 0;
-    if (injectTimer) return;
-    const delay =
-      document.visibilityState === "visible" && injectRetryCount < 40 ? 50 : 500;
-    injectRetryCount += 1;
-    injectTimer = setTimeout(() => {
-      injectTimer = undefined;
-      flushMessages();
-    }, delay);
-  }
-
-  function flushMessages() {
-    clearTimeout(injectTimer);
-    injectTimer = undefined;
-    if (pendingMessages.size === 0) return;
-
-    const messages = [...pendingMessages.values()];
-    const updatedKeys = updateNativeMessages(messages);
-    const newMessages = messages.filter((message) => !updatedKeys.has(message.key));
-    const manager = getQuotationSocketManager();
-    const nativeUser = getNativeUserIdentity();
-    if (newMessages.length && (!manager || !nativeUser || !hasNativeSubscribers(manager, newMessages))) {
-      scheduleInjectRetry();
-      return;
-    }
-
-    const basicMessages = newMessages
-      .filter((message) => !message.token)
-      .map((message) => toTwitterMessage(message, nativeUser));
-    const tokenMessages = newMessages
-      .filter((message) => message.token)
-      .map((message) => toTwitterMessage(message, nativeUser));
-    try {
-      if (basicMessages.length > 0) {
-        manager.getXMonitorSocket().handleBasicData(basicMessages);
-        manager.getXMonitorUserBasicSocket().handleUserBasicData(basicMessages);
-      }
-      if (tokenMessages.length > 0) {
-        manager.getXMonitorSocket().handleTokenData(tokenMessages);
-        manager.getXMonitorUserTokenSocket().handleUserTokenData(tokenMessages);
-      }
-      for (const message of messages) {
-        receivedMessageSignatures.set(message.key, JSON.stringify(message));
-      }
-      pendingMessages.clear();
-      injectRetryCount = 0;
-      scheduleScan();
-    } catch {
-      quotationSocketManager = undefined;
-      scheduleInjectRetry();
-    }
-  }
-
-  document.addEventListener("unisignal:inject-twitter", () => {
-    const serialized = document.documentElement.dataset.unisignalTwitterMessages;
-    delete document.documentElement.dataset.unisignalTwitterMessages;
-    if (!serialized) return;
-
-    try {
-      const messages = JSON.parse(serialized);
-      const messageKeys = new Set(messages.map((message) => message.key));
-      for (const key of receivedMessageSignatures.keys()) {
-        if (!messageKeys.has(key)) receivedMessageSignatures.delete(key);
-      }
-      for (const key of pendingMessages.keys()) {
-        if (!messageKeys.has(key)) pendingMessages.delete(key);
-      }
-
-      for (const message of messages) {
-        const signature = JSON.stringify(message);
-        if (receivedMessageSignatures.get(message.key) === signature) continue;
-        pendingMessages.set(message.key, message);
-      }
-      if (pendingMessages.size > 0) {
-        injectRetryCount = 0;
-        flushMessages();
-      }
-    } catch {
-      return;
-    }
+  // document_start 注册；同时处理首批脚本和切换路由后懒加载的模块。
+  const chunks = window.webpackChunk_N_E = window.webpackChunk_N_E || [];
+  for (const chunk of chunks) wrapChunk(chunk);
+  let push = function (...entries) {
+    for (const chunk of entries) wrapChunk(chunk);
+    return Array.prototype.push.apply(this, entries);
+  };
+  Object.defineProperty(chunks, "push", {
+    configurable: true,
+    get: () => push,
+    set(nextPush) {
+      push = function (...entries) {
+        for (const chunk of entries) wrapChunk(chunk);
+        return nextPush.apply(this, entries);
+      };
+    },
   });
 
-  window.addEventListener("focus", () => {
-    if (pendingMessages.size > 0) scheduleInjectRetry(true);
-  });
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && pendingMessages.size > 0) {
-      scheduleInjectRetry(true);
-    }
-  });
-
-  function scheduleScan() {
-    clearTimeout(scanTimer);
-    scanTimer = setTimeout(scan, 50);
+  function addEmptyListStyle() {
+    const style = document.createElement("style");
+    // GMGN 的空状态在列表外；只在该列表实际包含 Telegram 行时解除遮挡。
+    style.textContent = `
+      .absolute.inset-0:has(> [data-unisignal-mixed-active]) {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+      }
+      .absolute.inset-0:has(> [data-unisignal-mixed-active]) ~ [data-sentry-component="EmptyMessageView"] {
+        display: none !important;
+      }
+    `;
+    document.documentElement.append(style);
   }
-
-  function mutationAffectsItems(mutation) {
-    const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
-    const target =
-      mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
-    if (target?.closest(MONITOR_SELECTOR)) return true;
-
-    return changedNodes.some(
-      (node) =>
-        node instanceof Element &&
-        (node.matches(MONITOR_SELECTOR) || node.querySelector(MONITOR_SELECTOR)),
-    );
-  }
-
-  scheduleScan();
-  new MutationObserver((mutations) => {
-    if (mutations.some(mutationAffectsItems)) scheduleScan();
-  }).observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-  });
+  if (document.documentElement) addEmptyListStyle();
+  else document.addEventListener("DOMContentLoaded", addEmptyListStyle, { once: true });
 })();

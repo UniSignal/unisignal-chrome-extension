@@ -36,7 +36,11 @@
 
 这是一个无构建步骤、无运行时依赖的 Chrome Manifest V3 扩展。打开 `chrome://extensions/`，开启“开发者模式”，点击“加载已解压的扩展程序”，选择包含 `manifest.json` 的本仓库目录。
 
-修改后，在 `chrome://extensions/` 中点击 UniSignal 的重新加载按钮，再刷新 GMGN 页面。
+混排模式在 GMGN 列表组件创建时接入消息数据：原生虚拟列表负责行高和滚动，Telegram 卡片复用扩展的 HTML 白名单清洗与渲染。接入依赖 GMGN 内部组件，网站更新后需复核；不会向 GMGN 的推文消息缓存写入 Telegram 数据。
+
+修改后，在 `chrome://extensions/` 中点击 UniSignal 的重新加载按钮，再刷新 GMGN 页面。列表接入需要在页面脚本运行前初始化。
+
+本地回归测试：`node --test tests/*.test.js`。
 
 ## 隐私
 
