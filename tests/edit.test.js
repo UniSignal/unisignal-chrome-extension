@@ -6,7 +6,7 @@ const vm = require("node:vm");
 
 const source = fs.readFileSync(path.join(__dirname, "../gmgn-bridge.js"), "utf8");
 
-function setup(inMonitor = true) {
+function setup(inMonitor = true, pinState) {
   const handlers = new Map();
   const dataset = {};
   const subscribers = new Set();
@@ -45,7 +45,7 @@ function setup(inMonitor = true) {
   vm.runInContext(source, context);
   const chunks = context.window.webpackChunk_N_E;
   const modules = {};
-  const require = () => React;
+  const require = (id) => id === "pins" ? pinState : React;
   const register = (chunk) => Object.assign(modules, chunk[1]);
   // 模拟 webpack 先排队、随后替换 push 接管后续懒加载。
   chunks.push([[], { untouched: function () {} }]);
@@ -60,6 +60,26 @@ function setup(inMonitor = true) {
   }]);
   const module = { exports: {} };
   modules.list(module, module.exports, require);
+  if (pinState) {
+    chunks.push([[], {
+      pins(module, exports, require) {
+        const state = require("pins");
+        module.exports.usePins = function () {
+          return { pinnedTweets: state.ids, sortTweetsWithPinned: () => {}, isPinnedTweet: (id) => state.ids.has(id) };
+        };
+      },
+      consumer(module) {
+        module.exports.useTracker = function () {
+          const { sortTweetsWithPinned: sort, isPinnedTweet: check } = {};
+          return { sort, check };
+        };
+      },
+    }]);
+    for (const name of ["pins", "consumer"]) {
+      const module = { exports: {} };
+      modules[name](module, module.exports, require);
+    }
+  }
   const nativeProps = {
     data: [],
     itemKey: (item) => `${item.id}_${item.tw_type}_${item.tw_timestamp}`,
@@ -76,7 +96,8 @@ function setup(inMonitor = true) {
     render(items = []) {
       stateIndex = 0;
       const wrapper = module.exports.List.type.render({ ...nativeProps, data: items }, null);
-      const tree = wrapper.type(wrapper.props);
+      let tree = wrapper.type(wrapper.props);
+      if (typeof tree.type === "function") tree = tree.type(tree.props);
       return tree.children[0].props;
     },
   };
@@ -155,4 +176,20 @@ test("lists outside the monitor retain their original data", () => {
   const props = bridge.render(items);
   assert.equal(props.data, items);
   assert.deepEqual(props.renderItem(items[0], 0), { item: items[0], index: 0 });
+});
+
+test("pin hook discovered after the list module controls mixed rows and reacts to cancellation", () => {
+  const pinState = { ids: new Set(["pin"]) };
+  const bridge = setup(true, pinState);
+  const items = [native("pin", 100), native("ordinary", 300)];
+  bridge.setMessages([{ key: "1:2", timestamp: 400 }]);
+  let props = bridge.render(items);
+  assert.equal(props.data[0].item, items[0]);
+  assert.equal(props.data[1].message.key, "1:2");
+  pinState.ids.clear();
+  props = bridge.render(items);
+  assert.equal(props.data[0].message.key, "1:2");
+  assert.equal(props.data[2].item, items[0]);
+  bridge.setMessages([]);
+  assert.equal(bridge.render(items).data, items);
 });

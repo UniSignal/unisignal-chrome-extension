@@ -9,6 +9,7 @@
   const wrappedFactories = new WeakSet();
   let messages = [];
   let signature = "[]";
+  let usePinnedTweets;
 
   document.addEventListener("unisignal:navigate", () => {
     const path = document.documentElement.dataset.unisignalNavigate;
@@ -41,16 +42,22 @@
     return () => listeners.delete(listener);
   }
 
-  function mergeMessages(nativeItems, telegramMessages) {
-    const items = nativeItems.map((item, index) => ({ item, index }));
+  function mergeMessages(nativeItems, telegramMessages, isPinnedTweet) {
+    const pinned = [];
+    const items = [];
+    nativeItems.forEach((item, index) => {
+      const target = isPinnedTweet?.(item.id, item.tw_type) ? pinned : items;
+      target.push({ item, index });
+    });
     for (const message of telegramMessages) {
       items.push({ message });
     }
-    return items.sort((a, b) => {
+    items.sort((a, b) => {
       const first = a.message?.timestamp ?? Number(a.item.tw_timestamp);
       const second = b.message?.timestamp ?? Number(b.item.tw_timestamp);
       return second - first;
     });
+    return pinned.concat(items);
   }
 
   function installListRenderer(exports, React) {
@@ -61,7 +68,12 @@
       const originalRender = forwardRef.render;
       const OriginalList = React.forwardRef(originalRender);
 
-      function MixedList({ nativeProps, nativeRef }) {
+      function PinAwareMixedList(props) {
+        const { isPinnedTweet } = usePinnedTweets();
+        return React.createElement(MixedList, { ...props, isPinnedTweet });
+      }
+
+      function MixedList({ nativeProps, nativeRef, isPinnedTweet }) {
         const host = React.useRef(null);
         const [inMonitor, setInMonitor] = React.useState(false);
         const [readingKeys, setReadingKeys] = React.useState(null);
@@ -84,8 +96,8 @@
           ? snapshot.filter((message) => !readingKeys || readingKeys.has(message.key))
           : [], [snapshot, inMonitor, readingKeys]);
         const rows = React.useMemo(
-          () => mergeMessages(nativeProps.data, activeMessages),
-          [nativeProps.data, activeMessages],
+          () => mergeMessages(nativeProps.data, activeMessages, isPinnedTweet),
+          [nativeProps.data, activeMessages, isPinnedTweet],
         );
         const mountCard = React.useCallback((element) => {
           if (element) element.dispatchEvent(new Event("unisignal:render-row", { bubbles: true }));
@@ -117,7 +129,7 @@
         const keySource = String(props.itemKey);
         const isTwitterList = keySource.includes("tw_timestamp") && keySource.includes("tw_type");
         return isTwitterList
-          ? React.createElement(MixedList, { nativeProps: props, nativeRef: ref })
+          ? React.createElement(usePinnedTweets ? PinAwareMixedList : MixedList, { nativeProps: props, nativeRef: ref })
           : React.createElement(OriginalList, { ...props, ref });
       };
     }
@@ -127,7 +139,9 @@
     for (const [id, factory] of Object.entries(chunk?.[1] || {})) {
       if (typeof factory !== "function" || wrappedFactories.has(factory)) continue;
       const source = String(factory);
-      if (!source.includes("gmgn-vlist-item") || !source.includes("renderItem")) continue;
+      const isListModule = source.includes("gmgn-vlist-item") && source.includes("renderItem");
+      const isPinModule = source.includes("pinnedTweets:") && source.includes("sortTweetsWithPinned:");
+      if (!isListModule && !isPinModule) continue;
       const wrapped = function (module, exports, require) {
         let React;
         const trackedRequire = new Proxy(require, {
@@ -138,7 +152,14 @@
           },
         });
         factory.call(this, module, exports, trackedRequire);
-        installListRenderer(module.exports, React);
+        if (isPinModule) {
+          // 复用 GMGN 的置顶状态及到期/取消规则，不按时间或 DOM 外观猜测置顶。
+          usePinnedTweets = Object.values(module.exports).find((value) =>
+            typeof value === "function" && String(value).includes("pinnedTweets:") &&
+            String(value).includes("sortTweetsWithPinned:")
+          );
+        }
+        if (isListModule) installListRenderer(module.exports, React);
       };
       wrappedFactories.add(wrapped);
       chunk[1][id] = wrapped;
