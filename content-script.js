@@ -15,7 +15,7 @@ const ALLOWED_TAGS = new Set(["a", "blockquote", "code", "del", "em", "pre", "st
 const ALLOWED_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tg:"]);
 const CONTRACT_ADDRESS_PATTERN = /(?<![0-9a-f])0x[0-9a-f]{40}(?![0-9a-f])/i;
 const GMGN_TOKEN_PATH_PATTERN =
-  /^\/(bsc|eth|base)\/token\/(?:[^/]*_)?(0x[0-9a-f]{40})(?:\/|$)/i;
+  /^\/([a-z0-9_-]+)\/token\/(?:[^/]*_)?(0x[0-9a-f]{40})(?:\/|$)/i;
 
 const MESSAGE_CSS = `
   :host {
