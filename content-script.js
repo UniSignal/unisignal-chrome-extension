@@ -54,6 +54,7 @@ const MESSAGE_CSS = `
   .edited { margin-left: 6px; color: #7f8896; font-size: calc(var(--message-font-size, 15px) - 3px); font-weight: 400; }
   .text { color: #e1e6ed; font-size: var(--message-font-size, 15px); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
   .text a { color: #57bfff; }
+  .text strong { font-weight: 700; background: rgb(101 214 196 / 20%); border-radius: 2px; }
   .text [data-gmgn-contract] { cursor: pointer; }
   .text code { padding: 1px 4px; border-radius: 4px; background: rgb(255 255 255 / 8%); color: #aee8d8; font-family: "SFMono-Regular", Consolas, monospace; }
   .text pre { margin: 8px 0 0; padding: 8px; overflow: auto; border-radius: 6px; background: rgb(0 0 0 / 28%); white-space: pre-wrap; }
