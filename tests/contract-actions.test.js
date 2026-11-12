@@ -5,6 +5,7 @@ const test = require("node:test");
 const vm = require("node:vm");
 
 const source = fs.readFileSync(path.join(__dirname, "../content-script.js"), "utf8");
+const siteConfig = source.slice(source.indexOf("const FLOATING_SITE"), source.indexOf("const TARGET_ROOT_SELECTOR"));
 const patterns = source.slice(source.indexOf("const CONTRACT_ADDRESS_PATTERN"), source.indexOf("const MESSAGE_CSS"));
 const functions = source.slice(source.indexOf("function markContractTargets"), source.indexOf("function createMessageGroup"));
 const address = "0x94772dc9d30bcc0e2f1c0ca1118dda631c1b2543";
@@ -14,8 +15,8 @@ function element() {
 }
 
 const { markContractTargets, createMessageActions } = vm.runInNewContext(
-  `${patterns}\n${functions}\n({ markContractTargets, createMessageActions })`,
-  { URL, document: { createElement: element }, chrome: { runtime: { getURL: (file) => file } } },
+  `${siteConfig}\n${patterns}\n${functions}\n({ markContractTargets, createMessageActions })`,
+  { location: { hostname: "gmgn.ai" }, URL, document: { createElement: element }, chrome: { runtime: { getURL: (file) => file } } },
 );
 
 for (const chain of [
@@ -51,6 +52,26 @@ test("plain Robinhood URL creates a CA button", () => {
   assert.equal(actions.children.length, 1);
   assert.equal(actions.children[0].dataset.gmgnChain, "robinhood");
 });
+
+for (const hostname of ["debot.ai", "web3.binance.com"]) {
+  test(`${hostname}: only supported EVM chains are marked and original links are preserved`, () => {
+    const site = vm.runInNewContext(
+      `${siteConfig}\n${patterns}\n${functions}\n({ markContractTargets, createMessageActions })`,
+      { location: { hostname }, URL, document: { createElement: element }, chrome: { runtime: { getURL: (file) => file } } },
+    );
+    for (const chain of ["bsc", "eth", "base", "robinhood", "future-evm_123"]) {
+      const link = { href: `https://gmgn.ai/${chain}/token/${address}`, dataset: {} };
+      const contracts = site.markContractTargets({
+        textContent: "", querySelectorAll: (selector) => selector === "a" ? [link] : [],
+      });
+      const supported = chain !== "future-evm_123";
+      assert.equal(contracts.length, supported ? 1 : 0);
+      assert.equal(site.createMessageActions({}, contracts).children.length, supported ? 1 : 0);
+      assert.equal(link.href, `https://gmgn.ai/${chain}/token/${address}`);
+      assert.equal(Boolean(link.dataset.gmgnContract), supported);
+    }
+  });
+}
 
 test("unrelated hosts, invalid chain paths and non-EVM addresses do not create CA buttons", () => {
   for (const href of [

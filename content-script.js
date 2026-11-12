@@ -1,4 +1,20 @@
 const PAGE_PARAMS = new URLSearchParams(location.search);
+const FLOATING_SITE = {
+  "debot.ai": {
+    displayModeKey: "debotDisplayMode",
+    chains: [
+      "bsc", "eth", "base", "robinhood", "arc", "stable", "xlayer", "monad",
+      "hyperevm", "elysium", "pharos", "arbitrum",
+    ],
+  },
+  "web3.binance.com": {
+    displayModeKey: "binanceWeb3DisplayMode",
+    chains: ["bsc", "eth", "base", "robinhood"],
+  },
+}[location.hostname];
+const IS_FLOATING_ONLY = Boolean(FLOATING_SITE);
+const DISPLAY_MODE_STORAGE_KEY = FLOATING_SITE?.displayModeKey || "displayMode";
+const DEFAULT_DISPLAY_MODE = IS_FLOATING_ONLY ? "floating" : "mixed";
 const TARGET_ROOT_SELECTOR =
   PAGE_PARAMS.get("popout") === "true" && PAGE_PARAMS.get("target") === "xTracker"
     ? '[data-testid="x-tracker-root"]'
@@ -113,7 +129,7 @@ let mixedMessagesDirty = true;
 let mixedMessagesSignature = "";
 const mixedRowSignatures = new WeakMap();
 let lastFloatingSignature = "";
-let displayMode = "mixed";
+let displayMode = DEFAULT_DISPLAY_MODE;
 let displayControl;
 let floatingMessages;
 let soundEnabled = true;
@@ -201,7 +217,7 @@ function isAllowedLink(href) {
 }
 
 function getNotificationSound(message) {
-  if (!Number.isInteger(message.channel_id) || message.channel_id === MAIN_CHANNEL_ID) {
+  if (IS_FLOATING_ONLY || !Number.isInteger(message.channel_id) || message.channel_id === MAIN_CHANNEL_ID) {
     return {
       url: UNISIGNAL_SOUND_URL,
       volume: notificationVolume / 100,
@@ -284,6 +300,7 @@ function markContractTargets(container) {
     if (!match) continue;
 
     const [, chain, address] = match;
+    if (IS_FLOATING_ONLY && !FLOATING_SITE.chains.includes(chain.toLowerCase())) continue;
     gmgnContracts.set(address.toLowerCase(), chain.toLowerCase());
     if (!link) continue;
     link.dataset.gmgnContract = address.toLowerCase();
@@ -334,7 +351,8 @@ function createMessageActions(data, contracts) {
     button.dataset.gmgnContract = address;
     button.dataset.gmgnChain = chain;
     button.title = address;
-    button.append(createIcon("GMGN_logo.svg"), `CA ${address.slice(0, 6)}…${address.slice(-4)}`);
+    if (!IS_FLOATING_ONLY) button.append(createIcon("GMGN_logo.svg"));
+    button.append(`CA ${address.slice(0, 6)}…${address.slice(-4)}`);
     actions.append(button);
   }
 
@@ -356,7 +374,9 @@ function createMessageGroup(messages, host = document.createElement("unisignal-t
     event.preventDefault();
     event.stopPropagation();
     document.documentElement.dataset.unisignalNavigate =
-      `/${target.dataset.gmgnChain}/token/${target.dataset.gmgnContract}`;
+      IS_FLOATING_ONLY
+        ? `/token/${target.dataset.gmgnChain}/${target.dataset.gmgnContract}`
+        : `/${target.dataset.gmgnChain}/token/${target.dataset.gmgnContract}`;
     document.dispatchEvent(new Event("unisignal:navigate"));
   });
 
@@ -438,7 +458,8 @@ function syncMixedMessages() {
 function setDisplayMode(mode) {
   if (mode === displayMode) return;
   displayMode = mode;
-  chrome.storage.local.set({ displayMode }).catch((error) => console.warn("保存显示模式失败", error));
+  chrome.storage.local.set({ [DISPLAY_MODE_STORAGE_KEY]: displayMode })
+    .catch((error) => console.warn("保存显示模式失败", error));
   lastInjectedSignature = "";
   lastFloatingSignature = "";
   scheduleRender(0);
@@ -522,7 +543,7 @@ function ensureDisplayControl() {
     <div class="window">
       <div class="toolbar">
         <img class="brand-icon" src="${UNISIGNAL_ICON_URL}" alt="" />
-        <button class="close-button" type="button" aria-label="关闭悬浮窗并切换为混排">×</button>
+        <button class="close-button" type="button" aria-label="${IS_FLOATING_ONLY ? "关闭悬浮窗" : "关闭悬浮窗并切换为混排"}">×</button>
       </div>
       <div class="messages"></div>
       <div class="resize-handle"></div>
@@ -530,7 +551,7 @@ function ensureDisplayControl() {
   `;
   floatingMessages = shadow.querySelector(".messages");
   shadow.querySelector(".close-button").addEventListener("click", () => {
-    setDisplayMode("mixed");
+    setDisplayMode(IS_FLOATING_ONLY ? "hidden" : "mixed");
   });
   makeDisplayControlInteractive(shadow.querySelector(".toolbar"));
   makeDisplayControlInteractive(shadow.querySelector(".resize-handle"), true);
@@ -581,10 +602,12 @@ function renderFloatingFeed() {
 }
 
 function renderActiveMode() {
-  syncMixedMessages();
-  if (!document.querySelector(TARGET_ROOT_SELECTOR)) {
-    displayControl?.remove();
-    return;
+  if (!IS_FLOATING_ONLY) {
+    syncMixedMessages();
+    if (!document.querySelector(TARGET_ROOT_SELECTOR)) {
+      displayControl?.remove();
+      return;
+    }
   }
 
   if (displayMode === "floating") {
@@ -677,19 +700,22 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type !== "toggle-display-mode") return;
-  setDisplayMode(displayMode === "mixed" ? "floating" : "mixed");
+  setDisplayMode(displayMode === "floating" ? (IS_FLOATING_ONLY ? "hidden" : "mixed") : "floating");
 });
 
 chrome.storage.local
   .get({
-    displayMode: "mixed",
+    [DISPLAY_MODE_STORAGE_KEY]: DEFAULT_DISPLAY_MODE,
     soundEnabled: true,
     notificationVolume: DEFAULT_NOTIFICATION_VOLUME,
     messageFontSize: DEFAULT_MESSAGE_FONT_SIZE,
     enabledChannelIds: [],
   })
   .then((settings) => {
-    displayMode = settings.displayMode === "floating" ? "floating" : "mixed";
+    const savedMode = settings[DISPLAY_MODE_STORAGE_KEY];
+    displayMode = IS_FLOATING_ONLY
+      ? (savedMode === "hidden" ? "hidden" : "floating")
+      : (savedMode === "floating" ? "floating" : "mixed");
     soundEnabled = settings.soundEnabled !== false;
     notificationVolume = normalizeNotificationVolume(settings.notificationVolume);
     messageFontSize = normalizeMessageFontSize(settings.messageFontSize);
@@ -715,7 +741,7 @@ function mutationAffectsFeed(mutation) {
   );
 }
 
-new MutationObserver((mutations) => {
+if (!IS_FLOATING_ONLY) new MutationObserver((mutations) => {
   if (mutations.some(mutationAffectsFeed)) scheduleRender();
 }).observe(document.documentElement, {
   childList: true,

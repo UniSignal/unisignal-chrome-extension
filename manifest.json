@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "UniSignal Telegram Feed",
-  "version": "2.0.6",
-  "description": "在 GMGN 推特监控中混排展示 Telegram 推送。",
+  "version": "2.1.0",
+  "description": "在 GMGN 混排或悬浮展示 Telegram 推送，在 DeBot、Binance Web3 使用悬浮窗查看。",
   "minimum_chrome_version": "116",
   "icons": {
     "16": "icons/icon16.png",
@@ -17,7 +17,7 @@
     "service_worker": "service-worker.js"
   },
   "action": {
-    "default_title": "切换混排 / 悬浮",
+    "default_title": "GMGN：切换混排 / 悬浮；DeBot、Binance Web3：显示 / 隐藏悬浮窗",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png"
@@ -27,22 +27,28 @@
     {
       "resources": [
         "notification-sound.mp3",
-        "icons/avatar.jpg",
         "icons/icon32.png",
-        "icons/GMGN_logo.svg",
         "icons/Telegram_logo.svg"
       ],
       "matches": [
         "https://gmgn.ai/*",
-        "https://*.gmgn.ai/*"
+        "https://debot.ai/*",
+        "https://web3.binance.com/*"
+      ]
+    },
+    {
+      "resources": [
+        "icons/GMGN_logo.svg"
+      ],
+      "matches": [
+        "https://gmgn.ai/*"
       ]
     }
   ],
   "content_scripts": [
     {
       "matches": [
-        "https://gmgn.ai/*",
-        "https://*.gmgn.ai/*"
+        "https://gmgn.ai/*"
       ],
       "js": [
         "gmgn-bridge.js"
@@ -52,8 +58,20 @@
     },
     {
       "matches": [
+        "https://debot.ai/*",
+        "https://web3.binance.com/*"
+      ],
+      "js": [
+        "floating-bridge.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
         "https://gmgn.ai/*",
-        "https://*.gmgn.ai/*"
+        "https://debot.ai/*",
+        "https://web3.binance.com/*"
       ],
       "js": [
         "content-script.js"

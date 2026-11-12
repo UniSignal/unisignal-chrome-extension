@@ -51,6 +51,7 @@ jobs:
             dashboard.css
             dashboard.html
             dashboard.js
+            floating-bridge.js
             gmgn-bridge.js
             icons
             manifest.json
