@@ -2,6 +2,7 @@ const PAGE_PARAMS = new URLSearchParams(location.search);
 const FLOATING_SITE = {
   "debot.ai": {
     displayModeKey: "debotDisplayMode",
+    logo: "DeBot_logo.png",
     chains: [
       "bsc", "eth", "base", "robinhood", "arc", "stable", "xlayer", "monad",
       "hyperevm", "elysium", "pharos", "arbitrum",
@@ -9,6 +10,7 @@ const FLOATING_SITE = {
   },
   "web3.binance.com": {
     displayModeKey: "binanceWeb3DisplayMode",
+    logo: "Binance_logo.png",
     chains: ["bsc", "eth", "base", "robinhood"],
   },
 }[location.hostname];
@@ -351,8 +353,7 @@ function createMessageActions(data, contracts) {
     button.dataset.gmgnContract = address;
     button.dataset.gmgnChain = chain;
     button.title = address;
-    if (!IS_FLOATING_ONLY) button.append(createIcon("GMGN_logo.svg"));
-    button.append(`CA ${address.slice(0, 6)}…${address.slice(-4)}`);
+    button.append(createIcon(FLOATING_SITE?.logo || "GMGN_logo.svg"), `CA ${address.slice(0, 6)}…${address.slice(-4)}`);
     actions.append(button);
   }
 

@@ -43,6 +43,22 @@
       "matches": [
         "https://gmgn.ai/*"
       ]
+    },
+    {
+      "resources": [
+        "icons/DeBot_logo.png"
+      ],
+      "matches": [
+        "https://debot.ai/*"
+      ]
+    },
+    {
+      "resources": [
+        "icons/Binance_logo.png"
+      ],
+      "matches": [
+        "https://web3.binance.com/*"
+      ]
     }
   ],
   "content_scripts": [
