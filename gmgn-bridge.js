@@ -3,7 +3,7 @@
   const MONITOR_SELECTOR =
     pageParams.get("popout") === "true" && pageParams.get("target") === "xTracker"
       ? '[data-testid="x-tracker-root"]'
-      : '[data-id="KEY_X_SNIPER_RND_V1"]';
+      : '[data-id="KEY_X_SNIPER_RND_V1"], [data-testid="x-tracker-root"]';
   const GMGN_TOKEN_PATH = /^\/[a-z0-9_-]+\/token\/0x[0-9a-f]{40}$/i;
   const listeners = new Set();
   const wrappedFactories = new WeakSet();

@@ -20,7 +20,7 @@ const DEFAULT_DISPLAY_MODE = IS_FLOATING_ONLY ? "floating" : "mixed";
 const TARGET_ROOT_SELECTOR =
   PAGE_PARAMS.get("popout") === "true" && PAGE_PARAMS.get("target") === "xTracker"
     ? '[data-testid="x-tracker-root"]'
-    : '[data-id="KEY_X_SNIPER_RND_V1"]';
+    : '[data-id="KEY_X_SNIPER_RND_V1"], [data-testid="x-tracker-root"]';
 const MAX_MESSAGE_HISTORY = 100;
 const DEFAULT_MESSAGE_FONT_SIZE = 15;
 const MIN_MESSAGE_FONT_SIZE = 12;
