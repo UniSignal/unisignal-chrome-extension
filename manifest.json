@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "UniSignal Telegram Feed",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "在 GMGN 混排或悬浮展示 Telegram 推送，在 DeBot、Binance Web3 使用悬浮窗查看。",
   "minimum_chrome_version": "116",
   "icons": {
