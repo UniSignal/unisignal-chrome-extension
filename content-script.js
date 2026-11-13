@@ -50,6 +50,12 @@ const MESSAGE_CSS = `
     background: rgb(16 28 31 / 96%);
   }
   article + article { margin-top: 7px; }
+  .header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .header .title { min-width: 0; margin-bottom: 0; overflow-wrap: anywhere; }
+  .header .actions { flex: none; }
+  .header .action { width: 36px; height: 36px; justify-content: center; padding: 5px; }
+  .header .action-icon { width: 24px; height: 24px; }
+  .header .action:hover { background: rgb(255 255 255 / 10%); }
   .title { margin-bottom: 6px; color: #65d6c4; font-size: calc(var(--message-font-size, 15px) - 1px); font-weight: 700; }
   .edited { margin-left: 6px; color: #7f8896; font-size: calc(var(--message-font-size, 15px) - 3px); font-weight: 400; }
   .text { color: #e1e6ed; font-size: var(--message-font-size, 15px); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -325,7 +331,7 @@ function markContractTargets(container) {
   return [...gmgnContracts].map(([address, chain]) => ({ chain, address }));
 }
 
-function createMessageActions(data, contracts) {
+function createMessageActions(data, contracts, compact = false) {
   const actions = document.createElement("div");
   actions.className = "actions";
 
@@ -354,7 +360,12 @@ function createMessageActions(data, contracts) {
     button.dataset.gmgnContract = address;
     button.dataset.gmgnChain = chain;
     button.title = address;
-    button.append(createIcon(FLOATING_SITE?.logo || "GMGN_logo.svg"), `CA ${address.slice(0, 6)}…${address.slice(-4)}`);
+    button.append(createIcon(FLOATING_SITE?.logo || "GMGN_logo.svg"));
+    if (compact) {
+      button.setAttribute("aria-label", `打开代币 ${address}`);
+    } else {
+      button.append(`CA ${address.slice(0, 6)}…${address.slice(-4)}`);
+    }
     actions.append(button);
   }
 
@@ -385,6 +396,7 @@ function createMessageGroup(messages, host = document.createElement("unisignal-t
   for (const data of messages) {
     const article = document.createElement("article");
     article.dataset.messageKey = getMessageKey(data);
+    const header = document.createElement("div");
     const title = document.createElement("div");
     const text = document.createElement("div");
     const footer = document.createElement("div");
@@ -394,6 +406,9 @@ function createMessageGroup(messages, host = document.createElement("unisignal-t
     text.className = "text";
     appendSanitizedHtml(text, data.html);
     const contracts = markContractTargets(text);
+    header.className = "header";
+    header.append(title);
+    if (contracts.length) header.append(createMessageActions({}, contracts.slice(0, 1), true));
     footer.className = "footer";
     footer.append(createMessageActions(data, contracts), time);
     time.textContent = new Date(data.date).toLocaleString("zh-CN", { hour12: false });
@@ -403,7 +418,7 @@ function createMessageGroup(messages, host = document.createElement("unisignal-t
       edited.textContent = "已编辑";
       title.append(edited);
     }
-    article.append(title, text, footer);
+    article.append(header, text, footer);
     shadow.append(article);
   }
   return host;
