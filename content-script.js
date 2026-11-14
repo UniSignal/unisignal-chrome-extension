@@ -408,7 +408,7 @@ function createMessageGroup(messages, host = document.createElement("unisignal-t
     const contracts = markContractTargets(text);
     header.className = "header";
     header.append(title);
-    if (contracts.length) header.append(createMessageActions({}, contracts.slice(0, 1), true));
+    if (contracts.length === 1) header.append(createMessageActions({}, contracts, true));
     footer.className = "footer";
     footer.append(createMessageActions(data, contracts), time);
     time.textContent = new Date(data.date).toLocaleString("zh-CN", { hour12: false });
