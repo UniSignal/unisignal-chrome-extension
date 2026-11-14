@@ -49,8 +49,29 @@ async function worker() {
     onDisconnect: { addListener() {} },
   });
   const receive = (data, socket = sockets.at(-1)) => socket.onmessage({ data: JSON.stringify(data) });
-  return { sockets, events, timers, receive, context, stored: () => stored };
+  return { sockets, events, timers, receive, context, connectPort: onConnect, stored: () => stored };
 }
+
+test("content ports receive current connection state and authentication/reconnect updates", async () => {
+  const w = await worker();
+  assert.deepEqual(w.events[0], { type: "connection-state", state: "connecting" });
+  w.sockets[0].onopen();
+  assert.equal(w.events.filter((event) => event.type === "connection-state").at(-1).state, "connecting");
+  w.receive({ type: "authenticated" });
+  assert.equal(w.events.at(-1).state, "connected");
+
+  const lateEvents = [];
+  w.connectPort({
+    name: "gmgn-feed", postMessage(data) { lateEvents.push(structuredClone(data)); },
+    onDisconnect: { addListener() {} },
+  });
+  assert.deepEqual(lateEvents[0], { type: "connection-state", state: "connected" });
+  w.sockets[0].onclose();
+  assert.equal(lateEvents.at(-1).state, "reconnecting");
+  vm.runInContext('connect("")', w.context);
+  assert.equal(lateEvents.at(-1).state, "disconnected");
+  assert.equal(w.events.some((event) => "accessToken" in event || "token" in event), false);
+});
 
 test("disconnects alternate endpoints; manual reconnect resets to primary and ignores stale closes", async () => {
   const w = await worker();
@@ -132,14 +153,19 @@ test("content script snapshots and edits stay silent, ordinary messages play sou
   const content = fs.readFileSync(path.join(__dirname, "../content-script.js"), "utf8");
   const handler = content.slice(content.indexOf("function handleWorkerMessage("), content.indexOf("function connectToWorker("));
   let sounds = 0;
+  const states = [];
   const context = vm.createContext({
     MAX_MESSAGE_HISTORY: 100, setOptionalChannels() {}, scheduleRender() {},
+    updateConnectionStatus(state) { states.push(state); },
     upsertMessage() {}, deleteMessage() {}, soundEnabled: true,
     shouldDisplayMessage: () => true,
     getNotificationSound: () => ({ url: "test", volume: 1 }),
     notificationAudio: { play() { sounds++; return Promise.resolve(); } },
   });
   vm.runInContext(handler, context);
+  context.handleWorkerMessage({ type: "connection-state", state: "connected" });
+  context.handleWorkerMessage({ type: "connection-state", state: "reconnecting" });
+  assert.deepEqual(states, ["connected", "reconnecting"]);
   context.handleWorkerMessage({ type: "snapshot", messageHistory: [message(1)] });
   context.handleWorkerMessage({ type: "telegram-message", message: message(1, "修改", "telegram_message_edited") });
   assert.equal(sounds, 0);

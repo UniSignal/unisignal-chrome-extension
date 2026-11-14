@@ -84,6 +84,7 @@ function setConnectionState(state, detail = "") {
     state,
     detail,
   };
+  broadcastToContent(message);
   chrome.runtime.sendMessage(message).catch(() => {
     // 设置页尚未打开时没有消息接收者，这是正常情况。
   });
@@ -252,6 +253,7 @@ chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== "gmgn-feed") return;
 
   contentPorts.add(port);
+  port.postMessage({ type: "connection-state", state: connectionState });
   port.postMessage({
     type: "snapshot",
     messageHistory,

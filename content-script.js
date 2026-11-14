@@ -107,7 +107,13 @@ const DISPLAY_CONTROL_CSS = `
   }
   .toolbar { display: flex; flex: none; align-items: center; justify-content: space-between; padding: 7px 8px; background: #1f1f1f; cursor: grab; touch-action: none; }
   .toolbar.dragging { cursor: grabbing; user-select: none; }
+  .brand { display: flex; align-items: center; gap: 8px; }
   .brand-icon { width: 16px; height: 16px; }
+  .connection-status { display: inline-flex; align-items: center; gap: 6px; color: #a1a1aa; font-size: 12px; }
+  .connection-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #a1a1aa; }
+  .connection-status[data-state="connected"]::before { background: #65d6a4; }
+  .connection-status[data-state="connecting"]::before, .connection-status[data-state="reconnecting"]::before { background: #e5ba62; }
+  .connection-status[data-state="disconnected"]::before { background: #e68080; }
   .close-button { display: flex; width: 22px; height: 22px; padding: 0; align-items: center; justify-content: center; border: 0; border-radius: 5px; background: transparent; color: #808080; font-family: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
   .close-button:hover { background: #242424; color: #f5f5f5; }
   .messages { min-height: 0; flex: 1; overflow-y: auto; border-top: 1px solid rgb(255 255 255 / 16%); scrollbar-color: #525252 transparent; scrollbar-width: thin; }
@@ -141,6 +147,7 @@ let lastFloatingSignature = "";
 let displayMode = DEFAULT_DISPLAY_MODE;
 let displayControl;
 let floatingMessages;
+let connectionState = "connecting";
 let soundEnabled = true;
 let notificationVolume = DEFAULT_NOTIFICATION_VOLUME;
 let messageFontSize = DEFAULT_MESSAGE_FONT_SIZE;
@@ -411,7 +418,12 @@ function createMessageGroup(messages, host = document.createElement("unisignal-t
     if (contracts.length === 1) header.append(createMessageActions({}, contracts, true));
     footer.className = "footer";
     footer.append(createMessageActions(data, contracts), time);
-    time.textContent = new Date(data.date).toLocaleString("zh-CN", { hour12: false });
+    const date = new Date(data.date);
+    time.dateTime = data.date;
+    time.title = date.toLocaleString("zh-CN", { hour12: false });
+    time.textContent = date.toDateString() === new Date().toDateString()
+      ? date.toLocaleTimeString("zh-CN", { hour12: false })
+      : time.title;
     if (data.type === "telegram_message_edited") {
       const edited = document.createElement("span");
       edited.className = "edited";
@@ -547,6 +559,23 @@ function clampDisplayControlToViewport() {
   displayControl.style.right = "auto";
 }
 
+function updateConnectionStatus(state) {
+  connectionState = state;
+  const status = displayControl?.shadowRoot.querySelector(".connection-status");
+  if (!status) return;
+
+  const label = {
+    connected: "已连接",
+    connecting: "连接中",
+    reconnecting: "重连中",
+    disconnected: "未连接",
+  }[state] || "未连接";
+  status.dataset.state = state;
+  status.title = label;
+  status.setAttribute("aria-label", label);
+  status.textContent = state === "connected" ? "" : label;
+}
+
 function ensureDisplayControl() {
   if (displayControl) {
     if (!displayControl.isConnected) document.documentElement.append(displayControl);
@@ -559,7 +588,10 @@ function ensureDisplayControl() {
   shadow.innerHTML = `
     <div class="window">
       <div class="toolbar">
-        <img class="brand-icon" src="${UNISIGNAL_ICON_URL}" alt="" />
+        <div class="brand">
+          <img class="brand-icon" src="${UNISIGNAL_ICON_URL}" alt="" />
+          <span class="connection-status" role="status" aria-live="polite"></span>
+        </div>
         <button class="close-button" type="button" aria-label="${IS_FLOATING_ONLY ? "关闭悬浮窗" : "关闭悬浮窗并切换为混排"}">×</button>
       </div>
       <div class="messages"></div>
@@ -567,6 +599,7 @@ function ensureDisplayControl() {
     </div>
   `;
   floatingMessages = shadow.querySelector(".messages");
+  updateConnectionStatus(connectionState);
   shadow.querySelector(".close-button").addEventListener("click", () => {
     setDisplayMode(IS_FLOATING_ONLY ? "hidden" : "mixed");
   });
@@ -647,7 +680,9 @@ function scheduleRender(delay = 100) {
 }
 
 function handleWorkerMessage(message) {
-  if (message.type === "snapshot") {
+  if (message.type === "connection-state") {
+    updateConnectionStatus(message.state);
+  } else if (message.type === "snapshot") {
     messageHistory = message.messageHistory.slice(-MAX_MESSAGE_HISTORY);
     setOptionalChannels(message.optionalChannels);
     mixedMessagesDirty = true;
@@ -684,12 +719,14 @@ function connectToWorker() {
     if (!chrome.runtime.id) return;
     workerPort = chrome.runtime.connect({ name: "gmgn-feed" });
   } catch {
+    updateConnectionStatus("disconnected");
     return;
   }
   workerPort.onMessage.addListener(handleWorkerMessage);
   workerPort.onDisconnect.addListener(() => {
     void chrome.runtime.lastError;
     workerPort = null;
+    updateConnectionStatus("reconnecting");
     reconnectTimer = setTimeout(connectToWorker, 1_000);
   });
 }
