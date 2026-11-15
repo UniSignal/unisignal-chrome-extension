@@ -9,12 +9,13 @@ const message = (id, html = "正文", type = "telegram_message") => ({
   type, channel_id: 123, message_id: id, html, date: "2026-10-06T00:00:00Z",
 });
 
-async function worker() {
+async function worker({ startup = Promise.resolve(), accessToken = "test" } = {}) {
   const sockets = [];
   const events = [];
   const timers = new Map();
   let timerId = 0;
   let onConnect;
+  let onMessage;
   let stored = [];
   class WebSocket {
     static OPEN = 1;
@@ -31,14 +32,14 @@ async function worker() {
     setInterval() { return 0; }, clearInterval() {},
     chrome: {
       storage: { local: {
-        async get() { return { accessToken: "test", messageHistory: [message(999)] }; },
+        async get() { await startup; return { accessToken, messageHistory: [message(999)] }; },
         async set(data) { if (data.messageHistory) stored = structuredClone(data.messageHistory); },
       } },
       action: { onClicked: { addListener() {} } },
       runtime: {
         sendMessage: async () => {},
         onConnect: { addListener(fn) { onConnect = fn; } },
-        onMessage: { addListener() {} },
+        onMessage: { addListener(fn) { onMessage = fn; } },
       },
     },
   });
@@ -49,7 +50,24 @@ async function worker() {
     onDisconnect: { addListener() {} },
   });
   const receive = (data, socket = sockets.at(-1)) => socket.onmessage({ data: JSON.stringify(data) });
-  return { sockets, events, timers, receive, context, connectPort: onConnect, stored: () => stored };
+  return { sockets, events, timers, receive, context, connectPort: onConnect, onMessage, stored: () => stored };
+}
+
+for (const accessToken of ["test", ""]) {
+  test(`status waits for startup storage with ${accessToken ? "a saved" : "no"} token`, async () => {
+    let finishLoad;
+    const startup = new Promise((resolve) => { finishLoad = resolve; });
+    const w = await worker({ startup, accessToken });
+    const responses = [];
+    assert.equal(w.onMessage({ type: "get-status" }, {}, (status) => responses.push(status)), true);
+    await new Promise(setImmediate);
+    assert.equal(responses.length, 0);
+    finishLoad();
+    await new Promise(setImmediate);
+    assert.equal(responses.length, 1);
+    assert.equal(responses[0].accessToken, accessToken);
+    assert.equal(responses[0].state, accessToken ? "connecting" : "disconnected");
+  });
 }
 
 test("content ports receive current connection state and authentication/reconnect updates", async () => {

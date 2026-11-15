@@ -267,12 +267,14 @@ chrome.runtime.onConnect.addListener((port) => {
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "get-status") {
-    sendResponse({
-      state: connectionState,
-      accessToken: currentAccessToken,
-      optionalChannels,
+    initialization.then(() => {
+      sendResponse({
+        state: connectionState,
+        accessToken: currentAccessToken,
+        optionalChannels,
+      });
     });
-    return;
+    return true;
   }
 
   if (message.type === "set-access-token") {
@@ -289,4 +291,4 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 });
 
-loadAndConnect();
+const initialization = loadAndConnect();

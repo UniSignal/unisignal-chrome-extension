@@ -143,6 +143,7 @@ let lastInjectedSignature = "";
 let mixedMessagesDirty = true;
 let mixedMessagesSignature = "";
 const mixedRowSignatures = new WeakMap();
+const messageArticleSignatures = new WeakMap();
 let lastFloatingSignature = "";
 let displayMode = DEFAULT_DISPLAY_MODE;
 let displayControl;
@@ -384,7 +385,10 @@ function createMessageGroup(messages, host = document.createElement("unisignal-t
   const hasShadow = Boolean(host.shadowRoot);
   const shadow = host.shadowRoot || host.attachShadow({ mode: "open" });
   shadow.adoptedStyleSheets = [MESSAGE_STYLE_SHEET];
-  shadow.replaceChildren();
+  const previousArticles = new Map(
+    [...shadow.children].map((article) => [article.dataset.messageKey, article]),
+  );
+  const articles = [];
   if (!hasShadow) shadow.addEventListener("click", (event) => {
     const target = event
       .composedPath()
@@ -401,8 +405,16 @@ function createMessageGroup(messages, host = document.createElement("unisignal-t
   });
 
   for (const data of messages) {
+    const key = getMessageKey(data);
+    const signature = JSON.stringify([data, getMessageTitle(data)]);
+    const previous = previousArticles.get(key);
+    previousArticles.delete(key);
+    if (previous && messageArticleSignatures.get(previous) === signature) {
+      articles.push(previous);
+      continue;
+    }
     const article = document.createElement("article");
-    article.dataset.messageKey = getMessageKey(data);
+    article.dataset.messageKey = key;
     const header = document.createElement("div");
     const title = document.createElement("div");
     const text = document.createElement("div");
@@ -431,7 +443,22 @@ function createMessageGroup(messages, host = document.createElement("unisignal-t
       title.append(edited);
     }
     article.append(header, text, footer);
-    shadow.append(article);
+    messageArticleSignatures.set(article, signature);
+    articles.push(article);
+  }
+  const retained = new Set(articles);
+  for (const article of [...shadow.children]) {
+    if (!retained.has(article)) article.remove();
+  }
+  let next = shadow.firstChild;
+  for (const article of articles) {
+    if (article === next) {
+      next = next.nextSibling;
+    } else if (article.parentNode === shadow && typeof shadow.moveBefore === "function") {
+      shadow.moveBefore(article, next);
+    } else {
+      shadow.insertBefore(article, next);
+    }
   }
   return host;
 }
@@ -621,31 +648,30 @@ function renderFloatingFeed() {
     empty.textContent = "暂无消息";
     floatingMessages.replaceChildren(empty);
   } else {
-    const group = createMessageGroup(messages);
-    const articles = new Map(
-      [...group.shadowRoot.querySelectorAll("article")]
-        .map((article) => [article.dataset.messageKey, article]),
-    );
+    const previousGroup = floatingMessages.querySelector("unisignal-telegram-feed");
+    const keys = new Set(messages.map(getMessageKey));
     const atTop = floatingMessages.scrollTop === 0;
     let anchor;
     let anchorTop;
     if (!atTop) {
       const viewportTop = floatingMessages.getBoundingClientRect().top;
-      const previousArticles = floatingMessages
-        .querySelector("unisignal-telegram-feed")?.shadowRoot.querySelectorAll("article") || [];
+      const previousArticles = previousGroup?.shadowRoot.querySelectorAll("article") || [];
       for (const article of previousArticles) {
         const rect = article.getBoundingClientRect();
-        if (rect.bottom <= viewportTop || !articles.has(article.dataset.messageKey)) continue;
-        anchor = articles.get(article.dataset.messageKey);
+        if (rect.bottom <= viewportTop || !keys.has(article.dataset.messageKey)) continue;
+        anchor = article.dataset.messageKey;
         anchorTop = rect.top;
         break;
       }
     }
-    floatingMessages.replaceChildren(group);
+    const group = createMessageGroup(messages, previousGroup || undefined);
+    if (!previousGroup) floatingMessages.replaceChildren(group);
     if (atTop) {
       floatingMessages.scrollTop = 0;
     } else if (anchor) {
-      floatingMessages.scrollTop += anchor.getBoundingClientRect().top - anchorTop;
+      const article = [...group.shadowRoot.querySelectorAll("article")]
+        .find((item) => item.dataset.messageKey === anchor);
+      floatingMessages.scrollTop += article.getBoundingClientRect().top - anchorTop;
     }
   }
   lastFloatingSignature = signature;
