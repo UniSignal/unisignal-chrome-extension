@@ -281,13 +281,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     chrome.storage.local.set({ accessToken: message.accessToken }).then(() => {
       connect(message.accessToken);
       sendResponse({ ok: true });
+    }).catch(() => {
+      sendResponse({ ok: false });
     });
     return true;
   }
 
   if (message.type === "reconnect") {
-    connect(currentAccessToken);
-    sendResponse({ ok: true });
+    try {
+      connect(currentAccessToken);
+      sendResponse({ ok: true });
+    } catch {
+      sendResponse({ ok: false });
+    }
   }
 });
 

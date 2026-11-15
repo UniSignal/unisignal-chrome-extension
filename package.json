@@ -1,0 +1,12 @@
+{
+  "name": "unisignal-chrome-extension",
+  "private": true,
+  "scripts": {
+    "check": "node --check content-script.js && node --check service-worker.js && node --check gmgn-bridge.js && node --check floating-bridge.js && node --check dashboard.js && node -e \"JSON.parse(require('node:fs').readFileSync('manifest.json', 'utf8'))\" && git diff --check",
+    "test": "node --test tests/*.test.js",
+    "test:browser": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1"
+  }
+}

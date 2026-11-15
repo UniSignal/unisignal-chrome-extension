@@ -194,6 +194,12 @@ button:hover,
   filter: brightness(1.08);
 }
 
+button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+  filter: none;
+}
+
 .connection-form button {
   background: #65d6c4;
   color: #071411;
@@ -249,7 +255,7 @@ button:hover,
 }
 
 #settingsDetail:empty {
-  display: none;
+  margin-top: 0;
 }
 
 @media (max-width: 560px) {

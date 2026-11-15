@@ -2,6 +2,7 @@ const statusElement = document.querySelector("#status");
 const statusText = document.querySelector("#statusText");
 const connectionDetail = document.querySelector("#connectionDetail");
 const connectionForm = document.querySelector("#connectionForm");
+const saveTokenButton = connectionForm.querySelector('button[type="submit"]');
 const accessTokenInput = document.querySelector("#accessToken");
 const reconnectButton = document.querySelector("#reconnect");
 const saveSettingsButton = document.querySelector("#saveSettings");
@@ -66,8 +67,25 @@ function setOptionalChannels(channels) {
   renderOptionalChannels();
 }
 
+async function runConnectionAction(message, pendingText, successText, failureText) {
+  if (saveTokenButton.disabled) return;
+  saveTokenButton.disabled = true;
+  reconnectButton.disabled = true;
+  connectionDetail.textContent = pendingText;
+  try {
+    const response = await chrome.runtime.sendMessage(message);
+    connectionDetail.textContent = response?.ok ? successText : failureText;
+  } catch {
+    connectionDetail.textContent = failureText;
+  } finally {
+    saveTokenButton.disabled = false;
+    reconnectButton.disabled = false;
+  }
+}
+
 connectionForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (saveTokenButton.disabled) return;
 
   const accessToken = accessTokenInput.value.trim();
   if (!accessToken) {
@@ -75,26 +93,40 @@ connectionForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  await chrome.runtime.sendMessage({ type: "set-access-token", accessToken });
-  connectionDetail.textContent = "Access Token 已保存，正在连接…";
+  await runConnectionAction(
+    { type: "set-access-token", accessToken },
+    "正在保存 Access Token…", "Access Token 已保存", "Access Token 保存失败，请重试。",
+  );
 });
 
 reconnectButton.addEventListener("click", () => {
-  chrome.runtime.sendMessage({ type: "reconnect" });
+  void runConnectionAction(
+    { type: "reconnect" },
+    "正在重新连接…", "已发起重新连接", "重新连接失败，请重试。",
+  );
 });
 
 saveSettingsButton.addEventListener("click", async () => {
+  if (saveSettingsButton.disabled) return;
+  saveSettingsButton.disabled = true;
+  settingsDetail.textContent = "正在保存设置…";
   enabledChannelIds = new Set(
     [...optionalChannelsElement.querySelectorAll("input[data-channel-id]:checked")]
       .map((input) => Number(input.dataset.channelId)),
   );
-  await chrome.storage.local.set({
-    enabledChannelIds: [...enabledChannelIds],
-    soundEnabled: soundEnabledInput.checked,
-    notificationVolume: Number(notificationVolumeInput.value),
-    messageFontSize: Number(messageFontSizeInput.value),
-  });
-  settingsDetail.textContent = "设置已保存";
+  try {
+    await chrome.storage.local.set({
+      enabledChannelIds: [...enabledChannelIds],
+      soundEnabled: soundEnabledInput.checked,
+      notificationVolume: Number(notificationVolumeInput.value),
+      messageFontSize: Number(messageFontSizeInput.value),
+    });
+    settingsDetail.textContent = "设置已保存";
+  } catch {
+    settingsDetail.textContent = "设置保存失败，请重试。";
+  } finally {
+    saveSettingsButton.disabled = false;
+  }
 });
 
 messageFontSizeInput.addEventListener("input", () => {

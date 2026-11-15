@@ -41,6 +41,25 @@ jobs:
         with:
           ref: refs/tags/${{ inputs.tag || github.ref_name }}
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install test dependencies
+        run: npm ci
+
+      - name: Check source and run unit tests
+        run: |
+          npm run check
+          npm test
+
+      - name: Install test browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser regression tests
+        run: npm run test:browser
+
       - name: Package extension
         if: env.UPLOAD_ARCHIVE == 'true'
         shell: bash

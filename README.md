@@ -45,6 +45,22 @@
 
 本地回归测试：`node --test tests/*.test.js`。
 
+浏览器回归测试（Node.js 22+，仅开发时需要）：
+
+```sh
+npm ci
+npx playwright install chromium
+npm run check
+npm test
+npm run test:browser
+```
+
+Linux 首次安装缺少系统库时使用 `npx playwright install --with-deps chromium`。
+测试使用临时 Chromium profile 加载真实扩展，通过 worker 向固定测试页面发送消息，
+覆盖焦点保持、编辑删除、历史快照、滚动位置，以及设置保存的成功、失败和重复提交。
+不使用真实 Token，不连接推送服务或依赖 GMGN 线上数据；线上路由及原生虚拟列表仍需实机验证。
+运行 `npm run test:browser -- --headed` 可查看测试过程。发布工作流会在打包前执行上述检查和测试。
+
 ## 隐私
 
 参见 [PRIVACY_POLICY.md](PRIVACY_POLICY.md)。
