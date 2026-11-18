@@ -181,8 +181,9 @@ test("settings save and connection actions acknowledge actual worker responses",
   await page.locator("#soundEnabled").check();
   await page.locator("#saveSettings").click();
   await expect(page.locator("#saveSettings")).not.toHaveClass("has-changes");
-  await expect(page.locator("#settingsDetail")).toBeEmpty();
+  await expect(page.locator("#settingsDetail")).toHaveText("设置已保存");
   expect(await worker.evaluate(async () => (await chrome.storage.local.get("soundEnabled")).soundEnabled)).toBe(true);
+  await expect(page.locator("#settingsDetail")).toBeEmpty();
 });
 
 test("saving the font size before optional channels load preserves channel selections", async ({ page, worker }) => {
@@ -225,7 +226,7 @@ test("save-token blocks repeated requests and recovers after a messaging failure
   const button = page.getByRole("button", { name: "保存并连接" });
   await button.click();
   await expect(button).toBeDisabled();
-  await expect(page.locator("#connectionDetail")).toBeEmpty();
+  await expect(page.locator("#connectionDetail")).toHaveText("正在保存 Access Token…");
   expect(await settingsLayout(page)).toEqual(layout);
   await page.locator("#connectionForm").dispatchEvent("submit");
   expect(await page.evaluate(() => window.testRequests)).toBe(1);
@@ -250,7 +251,7 @@ test("preferences prevent duplicate writes, report failure and permit retry", as
   const button = page.locator("#saveSettings");
   await button.click();
   await expect(button).toBeDisabled();
-  await expect(page.locator("#settingsDetail")).toBeEmpty();
+  await expect(page.locator("#settingsDetail")).toHaveText("正在保存设置…");
   expect(await settingsLayout(page)).toEqual(layout);
   await button.dispatchEvent("click");
   expect(await page.evaluate(() => window.testRequests)).toBe(1);
@@ -262,7 +263,7 @@ test("preferences prevent duplicate writes, report failure and permit retry", as
   await page.evaluate(() => { chrome.storage.local.set = window.testStorageSet; });
   await button.click();
   await expect(button).not.toHaveClass("has-changes");
-  await expect(page.locator("#settingsDetail")).toBeEmpty();
+  await expect(page.locator("#settingsDetail")).toHaveText("设置已保存");
   expect(await settingsLayout(page)).toEqual(layout);
   expect(await worker.evaluate(async () => (await chrome.storage.local.get("soundEnabled")).soundEnabled)).toBe(true);
 });

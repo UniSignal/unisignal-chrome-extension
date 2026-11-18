@@ -16,6 +16,15 @@ const notificationPreviewAudio = new Audio(chrome.runtime.getURL("notification-s
 let optionalChannels = [];
 let enabledChannelIds = new Set();
 let savedSettings = null;
+const successTimers = new WeakMap();
+
+function showSaved(element, text) {
+  clearTimeout(successTimers.get(element));
+  element.textContent = text;
+  successTimers.set(element, setTimeout(() => {
+    if (element.textContent === text) element.textContent = "";
+  }, 1000));
+}
 
 function readSettings() {
   return {
@@ -92,15 +101,26 @@ function setOptionalChannels(channels) {
 async function runConnectionAction(message, successText, failureText) {
   if (saveTokenButton.disabled) return;
   saveTokenButton.disabled = true;
+  connectionDetail.textContent = "正在保存 Access Token…";
   try {
     const response = await chrome.runtime.sendMessage(message);
-    connectionDetail.textContent = response?.ok ? successText : failureText;
+    if (!response?.ok) {
+      connectionDetail.textContent = failureText;
+    } else if (accessTokenInput.value.trim() === message.accessToken) {
+      showSaved(connectionDetail, successText);
+    } else {
+      connectionDetail.textContent = "";
+    }
   } catch {
     connectionDetail.textContent = failureText;
   } finally {
     saveTokenButton.disabled = false;
   }
 }
+
+accessTokenInput.addEventListener("input", () => {
+  if (connectionDetail.textContent === "Access Token 已保存") connectionDetail.textContent = "";
+});
 
 connectionForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -121,16 +141,20 @@ connectionForm.addEventListener("submit", async (event) => {
 saveSettingsButton.addEventListener("click", async () => {
   if (saveSettingsButton.disabled) return;
   saveSettingsButton.disabled = true;
+  settingsDetail.textContent = "正在保存设置…";
   const settings = readSettings();
   try {
     await chrome.storage.local.set(settings);
     savedSettings = JSON.stringify(settings);
-    settingsDetail.textContent = "";
+    if (updateSaveState()) {
+      settingsDetail.textContent = "";
+    } else {
+      showSaved(settingsDetail, "设置已保存");
+    }
   } catch {
     settingsDetail.textContent = "设置保存失败，请重试。";
   } finally {
     saveSettingsButton.disabled = false;
-    updateSaveState();
   }
 });
 
