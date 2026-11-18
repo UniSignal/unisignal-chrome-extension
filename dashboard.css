@@ -371,8 +371,13 @@ a:hover {
 }
 
 .input-row,
+.token-action:has(.save-confirmation),
 .settings-actions {
   position: relative;
+}
+
+.token-action {
+  display: grid;
 }
 
 #connectionDetail,
@@ -385,12 +390,22 @@ a:hover {
   line-height: 16px;
 }
 
+:is(#settingsDetail, #connectionDetail):has(.save-confirmation) {
+  top: auto;
+  bottom: calc(100% + 8px);
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  margin-inline: auto;
+  z-index: 1;
+  pointer-events: none;
+}
+
+#connectionDetail:has(.save-confirmation) {
+  left: auto;
+}
+
 .save-confirmation {
-  position: fixed;
-  inset: 16px 16px auto auto;
-  width: fit-content;
-  max-width: calc(100% - 32px);
-  margin: 0;
+  display: block;
   padding: 9px 16px;
   border: 1px solid #2f746b;
   border-radius: 10px;
@@ -400,7 +415,6 @@ a:hover {
   font-size: 13px;
   line-height: 1.5;
   text-align: center;
-  pointer-events: none;
 }
 
 @media (max-width: 560px) {
@@ -434,6 +448,10 @@ a:hover {
 
   .input-row > * {
     width: 100%;
+  }
+
+  #connectionDetail:has(.save-confirmation) {
+    left: 0;
   }
 
   .range-preference {

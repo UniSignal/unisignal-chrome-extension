@@ -174,7 +174,7 @@ test("history cap and updates retain the reading position", async ({ page, worke
 
 test("settings save and connection actions acknowledge actual worker responses", async ({ page, worker }) => {
   await openSettings(page, worker);
-  const confirmation = page.locator(".save-confirmation:popover-open");
+  const confirmation = page.locator(".save-confirmation");
   await page.locator("#accessToken").fill("fixture-token");
   await page.getByRole("button", { name: "保存并连接" }).click();
   await expect(confirmation).toHaveText("Access Token 已保存");
