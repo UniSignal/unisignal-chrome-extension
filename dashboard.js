@@ -123,10 +123,6 @@ saveSettingsButton.addEventListener("click", async () => {
   if (saveSettingsButton.disabled) return;
   saveSettingsButton.disabled = true;
   settingsDetail.textContent = "正在保存设置…";
-  enabledChannelIds = new Set(
-    [...optionalChannelsElement.querySelectorAll("input[data-channel-id]:checked")]
-      .map((input) => Number(input.dataset.channelId)),
-  );
   const settings = readSettings();
   try {
     await chrome.storage.local.set(settings);
@@ -196,5 +192,6 @@ chrome.storage.local
     messageFontSizeInput.value = settings.messageFontSize;
     messageFontSizeValue.value = `${messageFontSizeInput.value}px`;
     savedSettings = JSON.stringify(readSettings());
+    saveSettingsButton.disabled = false;
     updateSaveState();
   });

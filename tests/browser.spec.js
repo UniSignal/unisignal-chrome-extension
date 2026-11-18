@@ -132,8 +132,20 @@ test("settings save and connection actions acknowledge actual worker responses",
   expect(await worker.evaluate(async () => (await chrome.storage.local.get("accessToken")).accessToken)).toBe("fixture-token");
   await page.locator("#soundEnabled").check();
   await page.locator("#saveSettings").click();
-  await expect(page.locator("#settingsDetail")).toHaveText("设置已保存");
+  await expect(page.locator("#saveSettings")).not.toHaveClass("has-changes");
+  await expect(page.locator("#settingsDetail")).toBeEmpty();
   expect(await worker.evaluate(async () => (await chrome.storage.local.get("soundEnabled")).soundEnabled)).toBe(true);
+});
+
+test("saving the font size before optional channels load preserves channel selections", async ({ page, worker }) => {
+  await worker.evaluate(() => chrome.storage.local.set({ enabledChannelIds: [123] }));
+  await openSettings(page, worker);
+  await expect(page.locator("#optionalChannels input")).toHaveCount(0);
+  await page.locator("#messageFontSize").press("ArrowRight");
+  await page.locator("#saveSettings").click();
+  await expect(page.locator("#saveSettings")).not.toHaveClass("has-changes");
+  expect(await worker.evaluate(() => chrome.storage.local.get(["enabledChannelIds", "messageFontSize"])))
+    .toEqual({ enabledChannelIds: [123], messageFontSize: 16 });
 });
 
 test("worker storage failure reaches the settings page and allows retry", async ({ page, worker }) => {
@@ -193,8 +205,9 @@ test("preferences prevent duplicate writes, report failure and permit retry", as
   await expect(button).toBeEnabled();
   await page.evaluate(() => { chrome.storage.local.set = window.testStorageSet; });
   await button.click();
-  await expect(page.locator("#settingsDetail")).toHaveText("设置已保存");
   await expect(button).not.toHaveClass("has-changes");
+  await expect(page.locator("#settingsDetail")).toBeEmpty();
+  expect(await worker.evaluate(async () => (await chrome.storage.local.get("soundEnabled")).soundEnabled)).toBe(true);
 });
 
 test("settings highlight unsaved changes, reset on revert and retain edits made during save", async ({ page, worker }) => {
