@@ -130,8 +130,6 @@ test("settings save and connection actions acknowledge actual worker responses",
   await page.getByRole("button", { name: "保存并连接" }).click();
   await expect(page.locator("#connectionDetail")).toHaveText("Access Token 已保存");
   expect(await worker.evaluate(async () => (await chrome.storage.local.get("accessToken")).accessToken)).toBe("fixture-token");
-  await page.locator("#reconnect").click();
-  await expect(page.locator("#connectionDetail")).toHaveText("已发起重新连接");
   await page.locator("#soundEnabled").check();
   await page.locator("#saveSettings").click();
   await expect(page.locator("#settingsDetail")).toHaveText("设置已保存");
@@ -147,55 +145,35 @@ test("worker storage failure reaches the settings page and allows retry", async 
   await page.locator("#accessToken").fill("fixture-token");
   await page.getByRole("button", { name: "保存并连接" }).click();
   await expect(page.locator("#connectionDetail")).toHaveText("Access Token 保存失败，请重试。");
-  await expect(page.locator("#reconnect")).toBeEnabled();
+  await expect(page.getByRole("button", { name: "保存并连接" })).toBeEnabled();
   await worker.evaluate(() => { chrome.storage.local.set = globalThis.testStorageSet; });
   await page.getByRole("button", { name: "保存并连接" }).click();
   await expect(page.locator("#connectionDetail")).toHaveText("Access Token 已保存");
 });
 
-test("reconnect reports a worker connection failure", async ({ page, worker }) => {
+test("save-token blocks repeated requests and recovers after a messaging failure", async ({ page, worker }) => {
   await openSettings(page, worker);
-  await worker.evaluate(() => {
-    currentAccessToken = "fixture-token";
-    globalThis.WebSocket = class {
-      constructor() { throw new Error("fixture connection failure"); }
+  await page.locator("#accessToken").fill("fixture-token");
+  await page.evaluate(() => {
+    window.testRequests = 0;
+    chrome.runtime.sendMessage = () => {
+      window.testRequests++;
+      return new Promise((resolve, reject) => { window.testReject = reject; });
     };
   });
-  await page.locator("#reconnect").click();
-  await expect(page.locator("#connectionDetail")).toHaveText("重新连接失败，请重试。");
-  await expect(page.locator("#reconnect")).toBeEnabled();
+  const button = page.getByRole("button", { name: "保存并连接" });
+  await button.click();
+  await expect(button).toBeDisabled();
+  await page.locator("#connectionForm").dispatchEvent("submit");
+  expect(await page.evaluate(() => window.testRequests)).toBe(1);
+  await page.evaluate(() => window.testReject(new Error("fixture disconnected")));
+  await expect(page.locator("#connectionDetail")).toHaveText("Access Token 保存失败，请重试。");
+  await expect(button).toBeEnabled();
 });
-
-for (const action of ["save-token", "reconnect"]) {
-  test(`${action} blocks repeated requests and recovers after a messaging failure`, async ({ page, worker }) => {
-    await openSettings(page, worker);
-    await page.locator("#accessToken").fill("fixture-token");
-    await page.evaluate(() => {
-      window.testRequests = 0;
-      chrome.runtime.sendMessage = () => {
-        window.testRequests++;
-        return new Promise((resolve, reject) => { window.testReject = reject; });
-      };
-    });
-    const button = action === "save-token"
-      ? page.getByRole("button", { name: "保存并连接" }) : page.locator("#reconnect");
-    await button.click();
-    await expect(button).toBeDisabled();
-    await expect(page.locator("#reconnect")).toBeDisabled();
-    await page.locator("#connectionForm").dispatchEvent("submit");
-    await page.locator("#reconnect").dispatchEvent("click");
-    expect(await page.evaluate(() => window.testRequests)).toBe(1);
-    await page.evaluate(() => window.testReject(new Error("fixture disconnected")));
-    await expect(page.locator("#connectionDetail")).toHaveText(
-      action === "save-token" ? "Access Token 保存失败，请重试。" : "重新连接失败，请重试。",
-    );
-    await expect(button).toBeEnabled();
-    await expect(page.locator("#reconnect")).toBeEnabled();
-  });
-}
 
 test("preferences prevent duplicate writes, report failure and permit retry", async ({ page, worker }) => {
   await openSettings(page, worker);
+  await page.locator("#soundEnabled").check();
   await page.evaluate(() => {
     window.testStorageSet = chrome.storage.local.set;
     window.testRequests = 0;
@@ -211,8 +189,78 @@ test("preferences prevent duplicate writes, report failure and permit retry", as
   expect(await page.evaluate(() => window.testRequests)).toBe(1);
   await page.evaluate(() => window.testReject(new Error("fixture storage failure")));
   await expect(page.locator("#settingsDetail")).toHaveText("设置保存失败，请重试。");
+  await expect(button).toHaveClass("has-changes");
   await expect(button).toBeEnabled();
   await page.evaluate(() => { chrome.storage.local.set = window.testStorageSet; });
   await button.click();
   await expect(page.locator("#settingsDetail")).toHaveText("设置已保存");
+  await expect(button).not.toHaveClass("has-changes");
+});
+
+test("settings highlight unsaved changes, reset on revert and retain edits made during save", async ({ page, worker }) => {
+  await worker.evaluate(() => {
+    optionalChannels = [{ id: 123, name: "可选频道" }];
+  });
+  await openSettings(page, worker);
+  const button = page.locator("#saveSettings");
+  const originalColor = await button.evaluate((element) => getComputedStyle(element).backgroundColor);
+  await expect(button).not.toHaveClass("has-changes");
+  for (const selector of ["#soundEnabled", "input[data-channel-id]"]) {
+    const input = page.locator(selector);
+    await input.check();
+    await expect(button).toHaveClass("has-changes");
+    expect(await button.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe(originalColor);
+    await expect(page.locator("#settingsDetail")).toBeEmpty();
+    await input.uncheck();
+    await expect(button).not.toHaveClass("has-changes");
+  }
+  for (const selector of ["#notificationVolume", "#messageFontSize"]) {
+    const input = page.locator(selector);
+    await input.focus();
+    await input.press("ArrowRight");
+    await expect(button).toHaveClass("has-changes");
+    await input.press("ArrowLeft");
+    await expect(button).not.toHaveClass("has-changes");
+  }
+  await page.locator("#soundEnabled").check();
+  await page.evaluate(() => {
+    window.testStorageSet = chrome.storage.local.set;
+    chrome.storage.local.set = (settings) => new Promise((resolve) => {
+      window.finishSave = async () => { await window.testStorageSet.call(chrome.storage.local, settings); resolve(); };
+    });
+  });
+  await button.click();
+  await page.locator("#messageFontSize").focus();
+  await page.locator("#messageFontSize").press("ArrowRight");
+  await page.evaluate(() => window.finishSave());
+  await expect(button).toBeEnabled();
+  await expect(button).toHaveClass("has-changes");
+  await expect(page.locator("#settingsDetail")).toBeEmpty();
+  await page.evaluate(() => { chrome.storage.local.set = window.testStorageSet; });
+  await button.click();
+  await expect(button).not.toHaveClass("has-changes");
+  await page.reload();
+  await expect(page.locator("#messageFontSize")).toHaveValue("16");
+  await expect(button).not.toHaveClass("has-changes");
+});
+
+test("settings platform shortcuts and controls fit desktop and narrow windows", async ({ page, worker }) => {
+  await openSettings(page, worker);
+  const platforms = { GMGN: "https://gmgn.ai/", DeBot: "https://debot.ai/", "Binance Web3": "https://web3.binance.com/" };
+  for (const [name, url] of Object.entries(platforms)) {
+    const link = page.getByRole("link", { name, exact: true });
+    await expect(link).toHaveAttribute("href", url);
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  }
+  for (const width of [1280, 600, 560, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    for (const control of await page.locator("button, input, a").all()) {
+      await expect(control).toBeVisible();
+      const box = await control.boundingBox();
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+    }
+  }
 });

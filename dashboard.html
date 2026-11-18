@@ -15,26 +15,34 @@
         <p class="eyebrow">UNISIGNAL</p>
         <h1>Telegram 推送设置</h1>
       </div>
-      <div id="status" class="status disconnected">
-        <span class="status-dot"></span>
+      <div id="status" class="status disconnected" role="status">
+        <span class="status-dot" aria-hidden="true"></span>
         <span id="statusText">未连接</span>
       </div>
     </header>
+    <p class="subtitle">管理推送连接、订阅频道与阅读偏好。</p>
 
-    <form id="connectionForm" class="connection-form">
-      <label for="accessToken">Access Token</label>
+    <form id="connectionForm" class="connection-form" aria-labelledby="connectionTitle">
+      <div class="section-heading">
+        <h2 id="connectionTitle">推送连接</h2>
+        <a class="token-link" href="https://t.me/unisignal_relay_bot?start=token" target="_blank" rel="noopener noreferrer">获取 Access Token <span aria-hidden="true">↗</span></a>
+      </div>
+      <label for="accessToken">Access Token <span class="field-note">必填</span></label>
       <div class="input-row">
         <input id="accessToken" name="accessToken" type="password" placeholder="请输入 Access Token" autocomplete="off"
-          spellcheck="false" required />
+          spellcheck="false" autocapitalize="none" aria-describedby="connectionDetail" required />
         <button type="submit">保存并连接</button>
       </div>
       <p id="connectionDetail" class="detail" role="status"></p>
     </form>
 
     <section class="preferences" aria-labelledby="channelsTitle">
-      <h2 id="channelsTitle">频道配置</h2>
+      <div class="section-heading">
+        <h2 id="channelsTitle">频道配置</h2>
+        <span class="section-note">选择接收的推送</span>
+      </div>
       <label class="preference" for="primaryChannel">
-        <span>聚合监控</span>
+        <span>聚合监控 <span class="badge">默认开启</span></span>
         <input id="primaryChannel" type="checkbox" checked disabled />
       </label>
       <div id="optionalChannels">
@@ -43,7 +51,9 @@
     </section>
 
     <section class="preferences" aria-labelledby="preferencesTitle">
-      <h2 id="preferencesTitle">显示与声音</h2>
+      <div class="section-heading">
+        <h2 id="preferencesTitle">显示与声音</h2>
+      </div>
       <label class="preference" for="soundEnabled">
         <span>新消息通知声音</span>
         <input id="soundEnabled" type="checkbox" checked />
@@ -69,13 +79,23 @@
     </div>
     <p id="settingsDetail" class="detail" role="status"></p>
 
-    <div class="actions">
-      <a href="https://t.me/unisignal_relay_bot?start=token" target="_blank" rel="noopener noreferrer">获取 Access Token</a>
-      <button id="reconnect" class="secondary" type="button">重新连接</button>
-      <a href="https://gmgn.ai/" target="_blank" rel="noopener noreferrer">打开 GMGN</a>
-    </div>
-
-    <p class="hint">连接成功后即可关闭此页面。Telegram 推送将按时间顺序显示在 GMGN 推特监控中。</p>
+    <footer class="actions">
+      <p class="hint">连接成功后即可关闭此页面，推送会继续接收。</p>
+      <nav class="platform-links" aria-label="打开支持的平台">
+        <a href="https://gmgn.ai/" target="_blank" rel="noopener noreferrer">
+          <img src="icons/GMGN_logo.svg" width="16" height="16" alt="" />
+          GMGN <span aria-hidden="true">↗</span>
+        </a>
+        <a href="https://debot.ai/" target="_blank" rel="noopener noreferrer">
+          <img src="icons/DeBot_logo.png" width="16" height="16" alt="" />
+          DeBot <span aria-hidden="true">↗</span>
+        </a>
+        <a href="https://web3.binance.com/" target="_blank" rel="noopener noreferrer">
+          <img src="icons/Binance_logo.png" width="16" height="16" alt="" />
+          Binance Web3 <span aria-hidden="true">↗</span>
+        </a>
+      </nav>
+    </footer>
   </main>
 
   <script src="dashboard.js"></script>

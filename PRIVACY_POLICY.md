@@ -1,8 +1,8 @@
 # UniSignal Telegram Feed 隐私政策 / Privacy Policy
 
-生效日期：2026 年 11 月 12 日
+生效日期：2026 年 11 月 18 日
 
-Effective date: November 12, 2026
+Effective date: November 18, 2026
 
 ## 中文
 
@@ -11,6 +11,8 @@ Effective date: November 12, 2026
 本政策适用于 UniSignal Telegram Feed Chrome 扩展及其配套 Telegram 机器人和 WebSocket 服务。本扩展的单一用途是在 GMGN 推特监控信息流中按时间展示 UniSignal Telegram 频道消息，并提供 BSC、Ethereum 和 Base 合约地址跳转。
 
 扩展也支持在 DeBot 和 Binance Web3 页面通过悬浮窗展示同一消息流，并分别保存各站点的悬浮窗显示／隐藏偏好。点击支持的合约地址时，扩展调用当前页面已有的站内路由打开代币页；对应站点会按其自身规则加载代币数据。扩展不会向这两个站点发送 Access Token 或频道消息，也不会读取其钱包或账户数据。
+
+设置页提供 GMGN、DeBot 和 Binance Web3 的快捷入口，仅在用户点击时打开对应网站；这些网站可能按照各自政策处理访问 IP 和请求元数据。快捷入口不会附带 Access Token 或频道消息。
 
 ### 处理的数据
 
@@ -64,6 +66,8 @@ Effective date: November 12, 2026
 This policy applies to the UniSignal Telegram Feed Chrome extension and its supporting Telegram bot and WebSocket service. The Extension's single purpose is to display UniSignal Telegram channel messages chronologically in the GMGN X monitoring feed and provide navigation to BSC, Ethereum, and Base contract pages.
 
 The Extension also displays the same feed in a floating window on DeBot and Binance Web3, storing visibility preferences separately for each site. Clicking a supported contract address uses the current site's existing client-side router to open its token page; that site loads token data under its own policies. The Extension does not send Access Tokens or channel messages to either site and does not read their wallet or account data.
+
+The settings page provides shortcuts to GMGN, DeBot, and Binance Web3. These sites open only when clicked and may process visitors' IP addresses and request metadata under their own policies. The shortcuts do not include Access Tokens or channel messages.
 
 ### Data We Process
 

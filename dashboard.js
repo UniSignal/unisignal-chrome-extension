@@ -4,7 +4,6 @@ const connectionDetail = document.querySelector("#connectionDetail");
 const connectionForm = document.querySelector("#connectionForm");
 const saveTokenButton = connectionForm.querySelector('button[type="submit"]');
 const accessTokenInput = document.querySelector("#accessToken");
-const reconnectButton = document.querySelector("#reconnect");
 const saveSettingsButton = document.querySelector("#saveSettings");
 const settingsDetail = document.querySelector("#settingsDetail");
 const optionalChannelsElement = document.querySelector("#optionalChannels");
@@ -16,6 +15,29 @@ const messageFontSizeValue = document.querySelector("#messageFontSizeValue");
 const notificationPreviewAudio = new Audio(chrome.runtime.getURL("notification-sound.mp3"));
 let optionalChannels = [];
 let enabledChannelIds = new Set();
+let savedSettings = null;
+
+function readSettings() {
+  return {
+    enabledChannelIds: [...enabledChannelIds].sort((a, b) => a - b),
+    soundEnabled: soundEnabledInput.checked,
+    notificationVolume: Number(notificationVolumeInput.value),
+    messageFontSize: Number(messageFontSizeInput.value),
+  };
+}
+
+function updateSaveState() {
+  const hasChanges = savedSettings !== null && JSON.stringify(readSettings()) !== savedSettings;
+  saveSettingsButton.classList.toggle("has-changes", hasChanges);
+  return hasChanges;
+}
+
+function handleSettingsInput() {
+  updateSaveState();
+  if (!saveSettingsButton.disabled) {
+    settingsDetail.textContent = "";
+  }
+}
 
 const STATE_LABELS = {
   connected: "已连接",
@@ -54,7 +76,7 @@ function renderOptionalChannels() {
       } else {
         enabledChannelIds.delete(channel.id);
       }
-      settingsDetail.textContent = "";
+      handleSettingsInput();
     });
     label.append(name, input);
     return label;
@@ -70,7 +92,6 @@ function setOptionalChannels(channels) {
 async function runConnectionAction(message, pendingText, successText, failureText) {
   if (saveTokenButton.disabled) return;
   saveTokenButton.disabled = true;
-  reconnectButton.disabled = true;
   connectionDetail.textContent = pendingText;
   try {
     const response = await chrome.runtime.sendMessage(message);
@@ -79,7 +100,6 @@ async function runConnectionAction(message, pendingText, successText, failureTex
     connectionDetail.textContent = failureText;
   } finally {
     saveTokenButton.disabled = false;
-    reconnectButton.disabled = false;
   }
 }
 
@@ -99,13 +119,6 @@ connectionForm.addEventListener("submit", async (event) => {
   );
 });
 
-reconnectButton.addEventListener("click", () => {
-  void runConnectionAction(
-    { type: "reconnect" },
-    "正在重新连接…", "已发起重新连接", "重新连接失败，请重试。",
-  );
-});
-
 saveSettingsButton.addEventListener("click", async () => {
   if (saveSettingsButton.disabled) return;
   saveSettingsButton.disabled = true;
@@ -114,18 +127,16 @@ saveSettingsButton.addEventListener("click", async () => {
     [...optionalChannelsElement.querySelectorAll("input[data-channel-id]:checked")]
       .map((input) => Number(input.dataset.channelId)),
   );
+  const settings = readSettings();
   try {
-    await chrome.storage.local.set({
-      enabledChannelIds: [...enabledChannelIds],
-      soundEnabled: soundEnabledInput.checked,
-      notificationVolume: Number(notificationVolumeInput.value),
-      messageFontSize: Number(messageFontSizeInput.value),
-    });
-    settingsDetail.textContent = "设置已保存";
+    await chrome.storage.local.set(settings);
+    savedSettings = JSON.stringify(settings);
+    settingsDetail.textContent = updateSaveState() ? "" : "设置已保存";
   } catch {
     settingsDetail.textContent = "设置保存失败，请重试。";
   } finally {
     saveSettingsButton.disabled = false;
+    updateSaveState();
   }
 });
 
@@ -148,9 +159,7 @@ for (const input of [
   notificationVolumeInput,
   messageFontSizeInput,
 ]) {
-  input.addEventListener("input", () => {
-    settingsDetail.textContent = "";
-  });
+  input.addEventListener("input", handleSettingsInput);
 }
 
 chrome.runtime.onMessage.addListener((message) => {
@@ -186,4 +195,6 @@ chrome.storage.local
     notificationVolumeValue.value = `${notificationVolumeInput.value}%`;
     messageFontSizeInput.value = settings.messageFontSize;
     messageFontSizeValue.value = `${messageFontSizeInput.value}px`;
+    savedSettings = JSON.stringify(readSettings());
+    updateSaveState();
   });
