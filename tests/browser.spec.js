@@ -99,6 +99,31 @@ test("worker messages, edits, deletes and snapshots preserve unchanged cards and
   await expect(page.locator("unisignal-display-control .empty")).toHaveText("暂无消息");
 });
 
+test("the same address on two chains keeps distinct CA buttons and body routes", async ({ page, worker }) => {
+  const cards = await openFeed(page, worker);
+  const address = "0x94772dc9d30bcc0e2f1c0ca1118dda631c1b2543";
+  const html = ["eth", "base"].map((chain) =>
+    `<a href="https://gmgn.ai/${chain}/token/${address}"><code>${address}</code></a>`
+  ).join(" ") + ` https://gmgn.ai/ETH/token/${address.toUpperCase()}`;
+  await snapshot(worker, [message(1, html)]);
+  const buttons = cards.locator(".footer button");
+  await expect(buttons).toHaveCount(2);
+  await expect(cards.locator(".header button")).toHaveCount(0);
+
+  await page.evaluate(() => {
+    window.next = { router: { push: (path) => history.pushState(null, "", path) } };
+  });
+  for (const chain of ["eth", "base"]) {
+    const button = buttons.filter({ hasText: chain });
+    await button.click();
+    await expect(page).toHaveURL(`https://gmgn.ai/${chain}/token/${address}`);
+  }
+  for (const chain of ["eth", "base"]) {
+    await cards.locator(`.text a[href*="/${chain}/"] code`).click();
+    await expect(page).toHaveURL(`https://gmgn.ai/${chain}/token/${address}`);
+  }
+});
+
 test("renaming a channel updates its existing floating card without a new message", async ({ page, worker }) => {
   await worker.evaluate(() => chrome.storage.local.set({ enabledChannelIds: [123] }));
   const cards = await openFeed(page, worker);

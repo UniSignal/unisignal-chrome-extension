@@ -307,6 +307,7 @@ function appendSanitizedHtml(container, html) {
 
 function markContractTargets(container) {
   const gmgnContracts = new Map();
+  const chainByAddress = new Map();
   const targets = [...container.querySelectorAll("a")].map((link) => ({ href: link.href, link }));
   for (const match of container.textContent.matchAll(/https?:\/\/gmgn\.ai\/[^\s<>"'`]+/gi)) {
     targets.push({ href: match[0].replace(/[.,;:!?，。；：！？、）)\]】}]+$/u, "") });
@@ -317,27 +318,29 @@ function markContractTargets(container) {
     const match = url.hostname === "gmgn.ai" && url.pathname.match(GMGN_TOKEN_PATH_PATTERN);
     if (!match) continue;
 
-    const [, chain, address] = match;
-    if (IS_FLOATING_ONLY && !FLOATING_SITE.chains.includes(chain.toLowerCase())) continue;
-    gmgnContracts.set(address.toLowerCase(), chain.toLowerCase());
+    const chain = match[1].toLowerCase();
+    const address = match[2].toLowerCase();
+    if (IS_FLOATING_ONLY && !FLOATING_SITE.chains.includes(chain)) continue;
+    gmgnContracts.set(`${chain}:${address}`, { chain, address });
+    chainByAddress.set(address, chain);
     if (!link) continue;
-    link.dataset.gmgnContract = address.toLowerCase();
-    link.dataset.gmgnChain = chain.toLowerCase();
+    link.dataset.gmgnContract = address;
+    link.dataset.gmgnChain = chain;
   }
 
-  for (const element of container.querySelectorAll("code")) {
+  for (const element of container.querySelectorAll("code:not(a code)")) {
     const address = element.textContent.match(CONTRACT_ADDRESS_PATTERN)?.[0];
     if (!address) continue;
 
     const normalizedAddress = address.toLowerCase();
-    const chain = gmgnContracts.get(normalizedAddress);
+    const chain = chainByAddress.get(normalizedAddress);
     if (!chain) continue;
 
     element.dataset.gmgnContract = normalizedAddress;
     element.dataset.gmgnChain = chain;
   }
 
-  return [...gmgnContracts].map(([address, chain]) => ({ chain, address }));
+  return [...gmgnContracts.values()];
 }
 
 function createMessageActions(data, contracts, compact = false) {
@@ -373,7 +376,9 @@ function createMessageActions(data, contracts, compact = false) {
     if (compact) {
       button.setAttribute("aria-label", `打开代币 ${address}`);
     } else {
-      button.append(`CA ${address.slice(0, 6)}…${address.slice(-4)}`);
+      const hasOtherChain = contracts.some((item) => item.address === address && item.chain !== chain);
+      const label = hasOtherChain ? `CA ${chain}` : "CA";
+      button.append(`${label} ${address.slice(0, 6)}…${address.slice(-4)}`);
     }
     actions.append(button);
   }
