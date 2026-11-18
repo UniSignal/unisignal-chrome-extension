@@ -16,14 +16,13 @@ const notificationPreviewAudio = new Audio(chrome.runtime.getURL("notification-s
 let optionalChannels = [];
 let enabledChannelIds = new Set();
 let savedSettings = null;
-const successTimers = new WeakMap();
 
 function showSaved(element, text) {
-  clearTimeout(successTimers.get(element));
-  element.textContent = text;
-  successTimers.set(element, setTimeout(() => {
-    if (element.textContent === text) element.textContent = "";
-  }, 1000));
+  const confirmation = document.createElement("span");
+  confirmation.className = "save-confirmation";
+  confirmation.textContent = text;
+  element.replaceChildren(confirmation);
+  setTimeout(() => confirmation.remove(), 1000);
 }
 
 function readSettings() {

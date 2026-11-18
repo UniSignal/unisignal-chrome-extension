@@ -385,6 +385,16 @@ a:hover {
   line-height: 16px;
 }
 
+.save-confirmation {
+  display: block;
+  color: var(--accent);
+  text-align: center;
+}
+
+#connectionDetail .save-confirmation {
+  text-align: end;
+}
+
 @media (max-width: 560px) {
   body {
     padding: 20px 12px;
@@ -416,6 +426,10 @@ a:hover {
 
   .input-row > * {
     width: 100%;
+  }
+
+  #connectionDetail .save-confirmation {
+    text-align: center;
   }
 
   .range-preference {
