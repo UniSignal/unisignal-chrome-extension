@@ -17,6 +17,11 @@ let optionalChannels = [];
 let enabledChannelIds = new Set();
 let savedSettings = null;
 
+if (location.hash === "#updated") {
+  document.querySelector("#updateVersion").textContent = chrome.runtime.getManifest().version;
+  document.querySelector("#updateNotice").hidden = false;
+}
+
 function showSaved(element, text) {
   document.querySelector(".save-confirmation")?.remove();
   const confirmation = document.createElement("span");

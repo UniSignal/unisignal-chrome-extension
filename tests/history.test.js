@@ -37,6 +37,7 @@ async function worker({ startup = Promise.resolve(), accessToken = "test" } = {}
       } },
       action: { onClicked: { addListener() {} } },
       runtime: {
+        onInstalled: { addListener() {} },
         sendMessage: async () => {},
         onConnect: { addListener(fn) { onConnect = fn; } },
         onMessage: { addListener(fn) { onMessage = fn; } },

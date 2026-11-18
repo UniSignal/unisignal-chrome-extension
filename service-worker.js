@@ -243,6 +243,12 @@ async function loadAndConnect() {
   connect(accessToken);
 }
 
+chrome.runtime.onInstalled.addListener(({ reason, previousVersion }) => {
+  if (reason === "update" && previousVersion !== chrome.runtime.getManifest().version) {
+    chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html#updated") });
+  }
+});
+
 chrome.action.onClicked.addListener((tab) => {
   chrome.tabs.sendMessage(tab.id, { type: "toggle-display-mode" }).catch(() => {
     chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") });
