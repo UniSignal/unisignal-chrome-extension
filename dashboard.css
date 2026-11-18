@@ -10,6 +10,7 @@
   color: #f4f7ff;
   line-height: 1.5;
   accent-color: var(--accent);
+  scrollbar-gutter: stable;
 }
 
 * {
@@ -261,8 +262,6 @@ button:hover {
 
 button:disabled {
   cursor: wait;
-  opacity: 0.6;
-  filter: none;
 }
 
 .connection-form button[type="submit"],
@@ -371,17 +370,19 @@ a:hover {
   border-radius: 10px;
 }
 
+.input-row,
+.settings-actions {
+  position: relative;
+}
+
+#connectionDetail,
 #settingsDetail {
+  position: absolute;
+  top: 100%;
+  inset-inline: 0;
+  margin: 0;
   min-height: 0;
-  margin-top: 6px;
-}
-
-#settingsDetail:empty {
-  margin-top: 0;
-}
-
-#connectionDetail:empty {
-  display: none;
+  line-height: 16px;
 }
 
 @media (max-width: 560px) {

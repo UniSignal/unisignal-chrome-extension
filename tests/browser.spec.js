@@ -64,6 +64,15 @@ async function openSettings(page, worker) {
   await expect(page.locator("#soundEnabled")).not.toBeChecked();
 }
 
+function settingsLayout(page) {
+  return page.locator(".panel, .input-row, #saveSettings, footer").evaluateAll((elements) =>
+    elements.map((element) => {
+      const { x, y, width, height } = element.getBoundingClientRect();
+      return [x + scrollX, y + scrollY, width, height];
+    }),
+  );
+}
+
 test("worker messages, edits, deletes and snapshots preserve unchanged cards and focus", async ({ page, worker }) => {
   const cards = await openFeed(page, worker);
   await snapshot(worker, [message(1)]);
@@ -204,6 +213,7 @@ test("worker storage failure reaches the settings page and allows retry", async 
 
 test("save-token blocks repeated requests and recovers after a messaging failure", async ({ page, worker }) => {
   await openSettings(page, worker);
+  const layout = await settingsLayout(page);
   await page.locator("#accessToken").fill("fixture-token");
   await page.evaluate(() => {
     window.testRequests = 0;
@@ -215,15 +225,19 @@ test("save-token blocks repeated requests and recovers after a messaging failure
   const button = page.getByRole("button", { name: "保存并连接" });
   await button.click();
   await expect(button).toBeDisabled();
+  await expect(page.locator("#connectionDetail")).toBeEmpty();
+  expect(await settingsLayout(page)).toEqual(layout);
   await page.locator("#connectionForm").dispatchEvent("submit");
   expect(await page.evaluate(() => window.testRequests)).toBe(1);
   await page.evaluate(() => window.testReject(new Error("fixture disconnected")));
   await expect(page.locator("#connectionDetail")).toHaveText("Access Token 保存失败，请重试。");
   await expect(button).toBeEnabled();
+  expect(await settingsLayout(page)).toEqual(layout);
 });
 
 test("preferences prevent duplicate writes, report failure and permit retry", async ({ page, worker }) => {
   await openSettings(page, worker);
+  const layout = await settingsLayout(page);
   await page.locator("#soundEnabled").check();
   await page.evaluate(() => {
     window.testStorageSet = chrome.storage.local.set;
@@ -236,16 +250,20 @@ test("preferences prevent duplicate writes, report failure and permit retry", as
   const button = page.locator("#saveSettings");
   await button.click();
   await expect(button).toBeDisabled();
+  await expect(page.locator("#settingsDetail")).toBeEmpty();
+  expect(await settingsLayout(page)).toEqual(layout);
   await button.dispatchEvent("click");
   expect(await page.evaluate(() => window.testRequests)).toBe(1);
   await page.evaluate(() => window.testReject(new Error("fixture storage failure")));
   await expect(page.locator("#settingsDetail")).toHaveText("设置保存失败，请重试。");
+  expect(await settingsLayout(page)).toEqual(layout);
   await expect(button).toHaveClass("has-changes");
   await expect(button).toBeEnabled();
   await page.evaluate(() => { chrome.storage.local.set = window.testStorageSet; });
   await button.click();
   await expect(button).not.toHaveClass("has-changes");
   await expect(page.locator("#settingsDetail")).toBeEmpty();
+  expect(await settingsLayout(page)).toEqual(layout);
   expect(await worker.evaluate(async () => (await chrome.storage.local.get("soundEnabled")).soundEnabled)).toBe(true);
 });
 

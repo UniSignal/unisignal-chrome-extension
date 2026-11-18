@@ -89,10 +89,9 @@ function setOptionalChannels(channels) {
   renderOptionalChannels();
 }
 
-async function runConnectionAction(message, pendingText, successText, failureText) {
+async function runConnectionAction(message, successText, failureText) {
   if (saveTokenButton.disabled) return;
   saveTokenButton.disabled = true;
-  connectionDetail.textContent = pendingText;
   try {
     const response = await chrome.runtime.sendMessage(message);
     connectionDetail.textContent = response?.ok ? successText : failureText;
@@ -115,14 +114,13 @@ connectionForm.addEventListener("submit", async (event) => {
 
   await runConnectionAction(
     { type: "set-access-token", accessToken },
-    "正在保存 Access Token…", "Access Token 已保存", "Access Token 保存失败，请重试。",
+    "Access Token 已保存", "Access Token 保存失败，请重试。",
   );
 });
 
 saveSettingsButton.addEventListener("click", async () => {
   if (saveSettingsButton.disabled) return;
   saveSettingsButton.disabled = true;
-  settingsDetail.textContent = "正在保存设置…";
   const settings = readSettings();
   try {
     await chrome.storage.local.set(settings);
