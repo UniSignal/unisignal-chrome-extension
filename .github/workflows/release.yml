@@ -30,6 +30,7 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    concurrency: release-${{ inputs.tag || github.ref_name }}
     env:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
@@ -83,31 +84,36 @@ jobs:
 
           zip -r "$archive" "${files[@]}"
 
-      - name: Create release
+      - name: Create or update release
         shell: bash
         run: |
-          args=(
-            "$RELEASE_TAG"
-            --repo "$GITHUB_REPOSITORY"
-            --verify-tag
-          )
-
+          archive="unisignal-chrome-extension-${RELEASE_TAG}.zip"
+          args=()
           if [[ -n "$RELEASE_NAME" ]]; then
             args+=(--title "$RELEASE_NAME")
           fi
-
           if [[ -n "$RELEASE_NOTES" ]]; then
-            args+=(--notes "$RELEASE_NOTES")
-          else
-            args+=(--generate-notes)
+            printf '%s' "$RELEASE_NOTES" > "$RUNNER_TEMP/release-notes.md"
+            args+=(--notes-file "$RUNNER_TEMP/release-notes.md")
           fi
 
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json id >/dev/null; then
+            if [[ "$UPLOAD_ARCHIVE" == true ]]; then
+              gh release upload "$RELEASE_TAG" "$archive" --repo "$GITHUB_REPOSITORY" --clobber
+            fi
+            if (( ${#args[@]} )); then
+              gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" "${args[@]}"
+            fi
+            exit 0
+          fi
+
+          if [[ -z "$RELEASE_NOTES" ]]; then
+            args+=(--generate-notes)
+          fi
           if [[ "$RELEASE_TAG" == *-* ]]; then
             args+=(--prerelease)
           fi
-
           if [[ "$UPLOAD_ARCHIVE" == true ]]; then
-            args+=("unisignal-chrome-extension-${RELEASE_TAG}.zip")
+            args+=("$archive")
           fi
-
-          gh release create "${args[@]}"
+          gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag "${args[@]}"
