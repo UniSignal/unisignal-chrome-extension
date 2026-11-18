@@ -131,7 +131,7 @@ saveSettingsButton.addEventListener("click", async () => {
   try {
     await chrome.storage.local.set(settings);
     savedSettings = JSON.stringify(settings);
-    settingsDetail.textContent = updateSaveState() ? "" : "设置已保存";
+    settingsDetail.textContent = "";
   } catch {
     settingsDetail.textContent = "设置保存失败，请重试。";
   } finally {
