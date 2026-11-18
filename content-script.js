@@ -198,6 +198,7 @@ function setOptionalChannels(channels) {
       .filter((channel) => Number.isInteger(channel?.id) && typeof channel?.name === "string")
       .map((channel) => [channel.id, channel.name]),
   );
+  lastFloatingSignature = "";
   mixedMessagesDirty = true;
   scheduleRender(0);
 }

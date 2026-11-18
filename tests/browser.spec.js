@@ -99,6 +99,20 @@ test("worker messages, edits, deletes and snapshots preserve unchanged cards and
   await expect(page.locator("unisignal-display-control .empty")).toHaveText("暂无消息");
 });
 
+test("renaming a channel updates its existing floating card without a new message", async ({ page, worker }) => {
+  await worker.evaluate(() => chrome.storage.local.set({ enabledChannelIds: [123] }));
+  const cards = await openFeed(page, worker);
+  await broadcast(worker, {
+    type: "snapshot",
+    messageHistory: [{ ...message(1), channel_id: 123 }],
+    optionalChannels: [{ id: 123, name: "旧频道名" }],
+  });
+  const title = cards.locator(".title");
+  await expect(title).toHaveText("旧频道名");
+  await worker.evaluate(() => setOptionalChannels([{ id: 123, name: "新频道名" }]));
+  await expect(title).toHaveText("新频道名");
+});
+
 test("history cap and updates retain the reading position", async ({ page, worker }) => {
   const cards = await openFeed(page, worker);
   await snapshot(worker, Array.from({ length: 100 }, (_, i) => message(i + 1, "多行正文\n".repeat(8))));
