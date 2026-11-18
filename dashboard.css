@@ -386,13 +386,21 @@ a:hover {
 }
 
 .save-confirmation {
-  display: block;
+  position: fixed;
+  inset: auto 0 24px;
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  margin: 0 auto;
+  padding: 9px 16px;
+  border: 1px solid #2f746b;
+  border-radius: 10px;
+  background: #141c27;
   color: var(--accent);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 24%);
+  font-size: 13px;
+  line-height: 1.5;
   text-align: center;
-}
-
-#connectionDetail .save-confirmation {
-  text-align: end;
+  pointer-events: none;
 }
 
 @media (max-width: 560px) {
@@ -426,10 +434,6 @@ a:hover {
 
   .input-row > * {
     width: 100%;
-  }
-
-  #connectionDetail .save-confirmation {
-    text-align: center;
   }
 
   .range-preference {

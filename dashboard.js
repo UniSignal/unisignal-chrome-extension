@@ -18,10 +18,13 @@ let enabledChannelIds = new Set();
 let savedSettings = null;
 
 function showSaved(element, text) {
+  document.querySelector(".save-confirmation")?.remove();
   const confirmation = document.createElement("span");
   confirmation.className = "save-confirmation";
+  confirmation.setAttribute("popover", "manual");
   confirmation.textContent = text;
   element.replaceChildren(confirmation);
+  confirmation.showPopover?.();
   setTimeout(() => confirmation.remove(), 1000);
 }
 

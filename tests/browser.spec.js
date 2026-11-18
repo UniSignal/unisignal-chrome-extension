@@ -174,16 +174,17 @@ test("history cap and updates retain the reading position", async ({ page, worke
 
 test("settings save and connection actions acknowledge actual worker responses", async ({ page, worker }) => {
   await openSettings(page, worker);
+  const confirmation = page.locator(".save-confirmation:popover-open");
   await page.locator("#accessToken").fill("fixture-token");
   await page.getByRole("button", { name: "保存并连接" }).click();
-  await expect(page.locator("#connectionDetail")).toHaveText("Access Token 已保存");
+  await expect(confirmation).toHaveText("Access Token 已保存");
   expect(await worker.evaluate(async () => (await chrome.storage.local.get("accessToken")).accessToken)).toBe("fixture-token");
   await page.locator("#soundEnabled").check();
   await page.locator("#saveSettings").click();
   await expect(page.locator("#saveSettings")).not.toHaveClass("has-changes");
-  await expect(page.locator("#settingsDetail")).toHaveText("设置已保存");
+  await expect(confirmation).toHaveText("设置已保存");
   expect(await worker.evaluate(async () => (await chrome.storage.local.get("soundEnabled")).soundEnabled)).toBe(true);
-  await expect(page.locator("#settingsDetail")).toBeEmpty();
+  await expect(confirmation).toHaveCount(0);
 });
 
 test("saving the font size before optional channels load preserves channel selections", async ({ page, worker }) => {
