@@ -101,7 +101,7 @@ function setOptionalChannels(channels) {
 async function runConnectionAction(message, successText, failureText) {
   if (saveTokenButton.disabled) return;
   saveTokenButton.disabled = true;
-  connectionDetail.textContent = "正在保存 Access Token…";
+  connectionDetail.textContent = "";
   try {
     const response = await chrome.runtime.sendMessage(message);
     if (!response?.ok) {
@@ -141,7 +141,7 @@ connectionForm.addEventListener("submit", async (event) => {
 saveSettingsButton.addEventListener("click", async () => {
   if (saveSettingsButton.disabled) return;
   saveSettingsButton.disabled = true;
-  settingsDetail.textContent = "正在保存设置…";
+  settingsDetail.textContent = "";
   const settings = readSettings();
   try {
     await chrome.storage.local.set(settings);

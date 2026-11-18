@@ -226,7 +226,7 @@ test("save-token blocks repeated requests and recovers after a messaging failure
   const button = page.getByRole("button", { name: "保存并连接" });
   await button.click();
   await expect(button).toBeDisabled();
-  await expect(page.locator("#connectionDetail")).toHaveText("正在保存 Access Token…");
+  await expect(page.locator("#connectionDetail")).toBeEmpty();
   expect(await settingsLayout(page)).toEqual(layout);
   await page.locator("#connectionForm").dispatchEvent("submit");
   expect(await page.evaluate(() => window.testRequests)).toBe(1);
@@ -251,7 +251,7 @@ test("preferences prevent duplicate writes, report failure and permit retry", as
   const button = page.locator("#saveSettings");
   await button.click();
   await expect(button).toBeDisabled();
-  await expect(page.locator("#settingsDetail")).toHaveText("正在保存设置…");
+  await expect(page.locator("#settingsDetail")).toBeEmpty();
   expect(await settingsLayout(page)).toEqual(layout);
   await button.dispatchEvent("click");
   expect(await page.evaluate(() => window.testRequests)).toBe(1);
