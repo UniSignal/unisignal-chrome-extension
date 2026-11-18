@@ -387,10 +387,10 @@ a:hover {
 
 .save-confirmation {
   position: fixed;
-  inset: auto 0 24px;
+  inset: 16px 16px auto auto;
   width: fit-content;
   max-width: calc(100% - 32px);
-  margin: 0 auto;
+  margin: 0;
   padding: 9px 16px;
   border: 1px solid #2f746b;
   border-radius: 10px;
